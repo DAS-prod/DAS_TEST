@@ -402,10 +402,8 @@ export default function Home() {
         </section>
 
         {/* Quick Services Links */}
-        <section
-          id="gifting"
-          className="quick-links"
-        >
+        <section id="gifting" className="quick-links gifting-card">
+          
           <div className="container-wide quick-grid">
             {[
               [
