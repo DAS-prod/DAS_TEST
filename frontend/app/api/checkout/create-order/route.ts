@@ -35,21 +35,16 @@ type Product = {
 const FREE_DELIVERY_THRESHOLD = 999;
 const PAID_DELIVERY_AMOUNT = 99;
 
-function calculateShipping(
-  subtotal: number
-) {
+function calculateShipping(subtotal: number) {
   return subtotal > FREE_DELIVERY_THRESHOLD
     ? 0
     : PAID_DELIVERY_AMOUNT;
 }
 
 async function getProducts(): Promise<Product[]> {
-  const response = await fetch(
-    `${API_URL}/api/products`,
-    {
-      cache: "no-store",
-    }
-  );
+  const response = await fetch(`${API_URL}/api/products`, {
+    cache: "no-store",
+  });
 
   if (!response.ok) {
     throw new Error(
@@ -68,9 +63,7 @@ async function getProducts(): Promise<Product[]> {
   return data;
 }
 
-export async function POST(
-  request: NextRequest
-) {
+export async function POST(request: NextRequest) {
   try {
     /*
      * ---------------------------------------------
@@ -79,15 +72,12 @@ export async function POST(
      */
 
     const authorization =
-      request.headers.get(
-        "authorization"
-      );
+      request.headers.get("authorization");
 
-    const token =
-      authorization?.replace(
-        /^Bearer\s+/i,
-        ""
-      );
+    const token = authorization?.replace(
+      /^Bearer\s+/i,
+      ""
+    );
 
     if (!token) {
       return NextResponse.json(
@@ -105,13 +95,9 @@ export async function POST(
     const {
       data: { user },
       error: authError,
-    } =
-      await authClient.auth.getUser();
+    } = await authClient.auth.getUser();
 
-    if (
-      authError ||
-      !user
-    ) {
+    if (authError || !user) {
       console.error(
         "CREATE ORDER AUTH ERROR:",
         authError
@@ -132,23 +118,15 @@ export async function POST(
      * ---------------------------------------------
      */
 
-    const body =
-      await request.json();
+    const body = await request.json();
 
-    const lines =
-      body.lines as Line[];
+    const lines = body.lines as Line[];
+    const address = body.address as Address;
 
-    const address =
-      body.address as Address;
-
-    if (
-      !Array.isArray(lines) ||
-      !lines.length
-    ) {
+    if (!Array.isArray(lines) || !lines.length) {
       return NextResponse.json(
         {
-          error:
-            "Your cart is empty.",
+          error: "Your cart is empty.",
         },
         { status: 400 }
       );
@@ -178,19 +156,13 @@ export async function POST(
      * ---------------------------------------------
      */
 
-    const products =
-      await getProducts();
+    const products = await getProducts();
 
-    const byId = new Map<
-      string,
-      Product
-    >(
-      products.map(
-        (product) => [
-          String(product.id),
-          product,
-        ]
-      )
+    const byId = new Map<string, Product>(
+      products.map((product) => [
+        String(product.id),
+        product,
+      ])
     );
 
     /*
@@ -199,48 +171,42 @@ export async function POST(
      * ---------------------------------------------
      */
 
-    const validated =
-      lines.map((line) => {
-        const product =
-          byId.get(
-            String(
-              line.productId
-            )
-          );
+    const validated = lines.map((line) => {
+      const product = byId.get(
+        String(line.productId)
+      );
 
-        if (
-          !product ||
-          !product.active ||
-          Number(product.stock) <= 0 ||
-          !Number.isInteger(
-            Number(line.quantity)
-          ) ||
-          Number(line.quantity) < 1 ||
-          Number(line.quantity) > 50
-        ) {
-          throw new Error(
-            "One or more products are unavailable."
-          );
-        }
+      if (
+        !product ||
+        !product.active ||
+        Number(product.stock) <= 0 ||
+        !Number.isInteger(
+          Number(line.quantity)
+        ) ||
+        Number(line.quantity) < 1 ||
+        Number(line.quantity) > 50
+      ) {
+        throw new Error(
+          "One or more products are unavailable."
+        );
+      }
 
-        const price =
-          Number(product.price);
+      const price = Number(product.price);
 
-        if (
-          !Number.isFinite(price) ||
-          price <= 0
-        ) {
-          throw new Error(
-            "One or more products have an invalid price."
-          );
-        }
+      if (
+        !Number.isFinite(price) ||
+        price <= 0
+      ) {
+        throw new Error(
+          "One or more products have an invalid price."
+        );
+      }
 
-        return {
-          product,
-          quantity:
-            Number(line.quantity),
-        };
-      });
+      return {
+        product,
+        quantity: Number(line.quantity),
+      };
+    });
 
     /*
      * ---------------------------------------------
@@ -248,39 +214,27 @@ export async function POST(
      * ---------------------------------------------
      */
 
-    const subtotal =
-      Number(
-        validated
-          .reduce(
-            (
-              sum,
-              {
-                product,
-                quantity,
-              }
-            ) =>
-              sum +
-              Number(
-                product.price
-              ) *
-                quantity,
-            0
-          )
-          .toFixed(2)
-      );
+    const subtotal = Number(
+      validated
+        .reduce(
+          (
+            sum,
+            { product, quantity }
+          ) =>
+            sum +
+            Number(product.price) *
+              quantity,
+          0
+        )
+        .toFixed(2)
+    );
 
     const shipping =
-      calculateShipping(
-        subtotal
-      );
+      calculateShipping(subtotal);
 
-    const total =
-      Number(
-        (
-          subtotal +
-          shipping
-        ).toFixed(2)
-      );
+    const total = Number(
+      (subtotal + shipping).toFixed(2)
+    );
 
     if (
       !Number.isFinite(total) ||
@@ -303,16 +257,24 @@ export async function POST(
         .replace(/-/g, "")
         .slice(0, 12)}`;
 
+    /*
+     * IMPORTANT:
+     *
+     * Use the EXACT origin from the current request.
+     *
+     * Do NOT prefer NEXT_PUBLIC_SITE_URL here.
+     *
+     * This prevents:
+     *
+     * godavaribasket.com
+     *       ->
+     * www.godavaribasket.com
+     *
+     * or the reverse, which can cause browser
+     * sessionStorage to become unavailable.
+     */
     const siteUrl =
-      process.env
-        .NEXT_PUBLIC_SITE_URL ||
       request.nextUrl.origin;
-
-    if (!siteUrl) {
-      throw new Error(
-        "NEXT_PUBLIC_SITE_URL is not configured."
-      );
-    }
 
     const cfOrder =
       await createCashfreeOrder({
