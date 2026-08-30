@@ -2728,6 +2728,11 @@ button.quick-card {
   text-align: left;
 }
 
+.quick-card.gifting-card {
+  background: #168a4a;
+  color: #fff;
+}
+
 @media (max-width: 900px) {
   .mobile-panel button:not(.mobile-wishlist-link) {
     width: 100%;
