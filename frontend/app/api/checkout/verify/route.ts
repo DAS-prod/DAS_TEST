@@ -45,11 +45,8 @@ type Product = {
 const FREE_DELIVERY_THRESHOLD = 999;
 const PAID_DELIVERY_AMOUNT = 99;
 
-function calculateShipping(
-  subtotal: number
-) {
-  return subtotal >
-    FREE_DELIVERY_THRESHOLD
+function calculateShipping(subtotal: number) {
+  return subtotal > FREE_DELIVERY_THRESHOLD
     ? 0
     : PAID_DELIVERY_AMOUNT;
 }
@@ -219,6 +216,37 @@ export async function POST(
       );
     }
 
+    /*
+     * ==================================================
+     * 3A. VERIFY CASHFREE CUSTOMER
+     * ==================================================
+     */
+
+    const cashfreeCustomerId =
+      String(
+        cfOrder.customer_details
+          ?.customer_id || ""
+      );
+
+    if (
+      cashfreeCustomerId &&
+      cashfreeCustomerId !== user.id
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "This payment does not belong to this customer.",
+        },
+        { status: 403 }
+      );
+    }
+
+    /*
+     * ==================================================
+     * 3B. FIND SUCCESSFUL PAYMENT
+     * ==================================================
+     */
+
     const successful =
       Array.isArray(payments)
         ? payments.find(
@@ -288,7 +316,9 @@ export async function POST(
           );
 
         const quantity =
-          Number(line.quantity);
+          Number(
+            line.quantity
+          );
 
         if (
           !product ||
@@ -311,7 +341,9 @@ export async function POST(
           );
 
         if (
-          !Number.isFinite(price) ||
+          !Number.isFinite(
+            price
+          ) ||
           price <= 0
         ) {
           throw new Error(
@@ -463,7 +495,8 @@ export async function POST(
 
     const {
       data: existingPayment,
-      error: existingPaymentError,
+      error:
+        existingPaymentError,
     } =
       await supabase
         .from(
@@ -506,10 +539,10 @@ export async function POST(
           .maybeSingle();
 
       /*
-       * If the payment exists but order doesn't,
-       * remove the orphan payment record so the
-       * verified payment can be rebuilt.
+       * If payment exists but order does not,
+       * remove orphan payment.
        */
+
       if (
         !existingOrder
       ) {
@@ -547,6 +580,7 @@ export async function POST(
         /*
          * Already successfully processed.
          */
+
         return NextResponse.json({
           success: true,
 
@@ -696,6 +730,7 @@ export async function POST(
       /*
        * Roll back order.
        */
+
       await supabase
         .from("orders")
         .delete()
@@ -705,8 +740,9 @@ export async function POST(
         );
 
       /*
-       * Handle duplicate payment safely.
+       * Handle duplicate payment.
        */
+
       if (
         paymentError.code ===
         "23505"
@@ -837,9 +873,6 @@ export async function POST(
         .insert(items);
 
     if (itemError) {
-      /*
-       * Remove payment + order.
-       */
       await supabase
         .from(
           "order_payments"
@@ -912,9 +945,6 @@ export async function POST(
         });
 
     if (addressError) {
-      /*
-       * Remove order items.
-       */
       await supabase
         .from(
           "order_items"
@@ -925,9 +955,6 @@ export async function POST(
           order.id
         );
 
-      /*
-       * Remove payment.
-       */
       await supabase
         .from(
           "order_payments"
@@ -938,9 +965,6 @@ export async function POST(
           order.id
         );
 
-      /*
-       * Remove order.
-       */
       await supabase
         .from("orders")
         .delete()
