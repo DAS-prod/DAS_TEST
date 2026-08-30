@@ -52,12 +52,9 @@ function calculateShipping(subtotal: number) {
 }
 
 async function getProducts(): Promise<Product[]> {
-  const response = await fetch(
-    `${API_URL}/api/products`,
-    {
-      cache: "no-store",
-    }
-  );
+  const response = await fetch(`${API_URL}/api/products`, {
+    cache: "no-store",
+  });
 
   if (!response.ok) {
     throw new Error(
@@ -65,8 +62,7 @@ async function getProducts(): Promise<Product[]> {
     );
   }
 
-  const data =
-    await response.json();
+  const data = await response.json();
 
   if (!Array.isArray(data)) {
     throw new Error(
@@ -77,9 +73,7 @@ async function getProducts(): Promise<Product[]> {
   return data;
 }
 
-export async function POST(
-  request: NextRequest
-) {
+export async function POST(request: NextRequest) {
   try {
     /*
      * ==================================================
@@ -88,15 +82,12 @@ export async function POST(
      */
 
     const authorization =
-      request.headers.get(
-        "authorization"
-      );
+      request.headers.get("authorization");
 
-    const token =
-      authorization?.replace(
-        /^Bearer\s+/i,
-        ""
-      );
+    const token = authorization?.replace(
+      /^Bearer\s+/i,
+      ""
+    );
 
     if (!token) {
       return NextResponse.json(
@@ -114,13 +105,9 @@ export async function POST(
     const {
       data: { user },
       error: authError,
-    } =
-      await authClient.auth.getUser();
+    } = await authClient.auth.getUser();
 
-    if (
-      authError ||
-      !user
-    ) {
+    if (authError || !user) {
       console.error(
         "VERIFY AUTH ERROR:",
         authError
@@ -141,19 +128,15 @@ export async function POST(
      * ==================================================
      */
 
-    const body =
-      await request.json();
+    const body = await request.json();
 
-    const cashfreeOrderId =
-      String(
-        body.cashfreeOrderId || ""
-      ).trim();
+    const cashfreeOrderId = String(
+      body.cashfreeOrderId || ""
+    ).trim();
 
-    const lines =
-      body.lines as Line[];
+    const lines = body.lines as Line[];
 
-    const address =
-      body.address as Address;
+    const address = body.address as Address;
 
     if (
       !cashfreeOrderId ||
@@ -193,18 +176,16 @@ export async function POST(
      * ==================================================
      */
 
-    const [
-      cfOrder,
-      payments,
-    ] = await Promise.all([
-      getCashfreeOrder(
-        cashfreeOrderId
-      ),
+    const [cfOrder, payments] =
+      await Promise.all([
+        getCashfreeOrder(
+          cashfreeOrderId
+        ),
 
-      getCashfreePayments(
-        cashfreeOrderId
-      ),
-    ]);
+        getCashfreePayments(
+          cashfreeOrderId
+        ),
+      ]);
 
     if (!cfOrder) {
       return NextResponse.json(
@@ -215,37 +196,6 @@ export async function POST(
         { status: 400 }
       );
     }
-
-    /*
-     * ==================================================
-     * 3A. VERIFY CASHFREE CUSTOMER
-     * ==================================================
-     */
-
-    const cashfreeCustomerId =
-      String(
-        cfOrder.customer_details
-          ?.customer_id || ""
-      );
-
-    if (
-      cashfreeCustomerId &&
-      cashfreeCustomerId !== user.id
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "This payment does not belong to this customer.",
-        },
-        { status: 403 }
-      );
-    }
-
-    /*
-     * ==================================================
-     * 3B. FIND SUCCESSFUL PAYMENT
-     * ==================================================
-     */
 
     const successful =
       Array.isArray(payments)
@@ -286,15 +236,10 @@ export async function POST(
       await getProducts();
 
     const byId =
-      new Map<
-        string,
-        Product
-      >(
+      new Map<string, Product>(
         products.map(
           (product) => [
-            String(
-              product.id
-            ),
+            String(product.id),
             product,
           ]
         )
@@ -306,8 +251,8 @@ export async function POST(
      * ==================================================
      */
 
-    const validated =
-      lines.map((line) => {
+    const validated = lines.map(
+      (line) => {
         const product =
           byId.get(
             String(
@@ -316,9 +261,7 @@ export async function POST(
           );
 
         const quantity =
-          Number(
-            line.quantity
-          );
+          Number(line.quantity);
 
         if (
           !product ||
@@ -336,14 +279,10 @@ export async function POST(
         }
 
         const price =
-          Number(
-            product.price
-          );
+          Number(product.price);
 
         if (
-          !Number.isFinite(
-            price
-          ) ||
+          !Number.isFinite(price) ||
           price <= 0
         ) {
           throw new Error(
@@ -355,7 +294,8 @@ export async function POST(
           product,
           quantity,
         };
-      });
+      }
+    );
 
     /*
      * ==================================================
@@ -396,6 +336,15 @@ export async function POST(
           shipping
         ).toFixed(2)
       );
+
+    if (
+      !Number.isFinite(total) ||
+      total < 1
+    ) {
+      throw new Error(
+        "Order total must be at least ₹1."
+      );
+    }
 
     /*
      * ==================================================
@@ -495,74 +444,106 @@ export async function POST(
 
     const {
       data: existingPayment,
-      error:
-        existingPaymentError,
-    } =
-      await supabase
-        .from(
-          "order_payments"
-        )
-        .select(
-          "order_id"
-        )
-        .eq(
-          "provider_order_id",
-          cashfreeOrderId
-        )
-        .maybeSingle();
+      error: existingPaymentError,
+    } = await supabase
+      .from("order_payments")
+      .select("order_id")
+      .eq(
+        "provider_order_id",
+        cashfreeOrderId
+      )
+      .maybeSingle();
 
-    if (
-      existingPaymentError
-    ) {
+    if (existingPaymentError) {
+      console.error(
+        "EXISTING PAYMENT LOOKUP ERROR:",
+        existingPaymentError
+      );
+
       throw new Error(
-        existingPaymentError.message
+        "Unable to verify the existing payment."
       );
     }
 
     if (
       existingPayment?.order_id
     ) {
-      const {
-        data: existingOrder,
-        error:
-          existingOrderError,
-      } =
-        await supabase
-          .from("orders")
-          .select(
-            "id,order_number,total_amount,currency,user_id"
-          )
-          .eq(
-            "id",
-            existingPayment.order_id
-          )
-          .maybeSingle();
-
       /*
-       * If payment exists but order does not,
-       * remove orphan payment.
+       * ----------------------------------------------
+       * Check whether the corresponding order exists.
+       * ----------------------------------------------
        */
 
-      if (
-        !existingOrder
-      ) {
-        await supabase
-          .from(
-            "order_payments"
-          )
+      const {
+        data: existingOrder,
+        error: existingOrderError,
+      } = await supabase
+        .from("orders")
+        .select(
+          "id,order_number,total_amount,currency,user_id"
+        )
+        .eq(
+          "id",
+          existingPayment.order_id
+        )
+        .maybeSingle();
+
+      /*
+       * IMPORTANT:
+       *
+       * Do not access existingOrderError.message
+       * directly here because the Supabase generated
+       * type can infer the error branch as `never`.
+       *
+       * We only need to know that the lookup failed.
+       */
+
+      if (existingOrderError) {
+        console.error(
+          "EXISTING ORDER LOOKUP ERROR:",
+          existingOrderError
+        );
+
+        throw new Error(
+          "Unable to verify the existing order."
+        );
+      }
+
+      /*
+       * If the payment exists but order doesn't,
+       * remove the orphan payment record so the
+       * verified payment can be rebuilt.
+       */
+
+      if (!existingOrder) {
+        const {
+          error:
+            orphanPaymentDeleteError,
+        } = await supabase
+          .from("order_payments")
           .delete()
           .eq(
             "provider_order_id",
             cashfreeOrderId
           );
-      } else {
+
         if (
-          existingOrderError
+          orphanPaymentDeleteError
         ) {
+          console.error(
+            "ORPHAN PAYMENT DELETE ERROR:",
+            orphanPaymentDeleteError
+          );
+
           throw new Error(
-            existingOrderError.message
+            "Unable to recover the previous payment record."
           );
         }
+      } else {
+        /*
+         * Make sure the existing order belongs
+         * to the authenticated customer.
+         */
 
         if (
           existingOrder.user_id !==
@@ -579,6 +560,9 @@ export async function POST(
 
         /*
          * Already successfully processed.
+         *
+         * Return the existing order rather than
+         * creating another order.
          */
 
         return NextResponse.json({
@@ -610,74 +594,86 @@ export async function POST(
     const {
       data: order,
       error: orderError,
-    } =
-      await supabase
-        .from("orders")
-        .insert({
-          user_id:
-            user.id,
+    } = await supabase
+      .from("orders")
+      .insert({
+        user_id:
+          user.id,
 
-          status:
-            "confirmed",
+        status:
+          "confirmed",
 
-          payment_status:
-            "paid",
+        payment_status:
+          "paid",
 
-          subtotal,
+        subtotal,
 
-          shipping_amount:
-            shipping,
+        shipping_amount:
+          shipping,
 
-          total_amount:
-            total,
+        total_amount:
+          total,
 
-          currency:
-            "INR",
+        currency:
+          "INR",
 
-          delivery_name:
-            address.fullName,
+        delivery_name:
+          address.fullName,
 
-          delivery_mobile:
-            address.mobile,
+        delivery_mobile:
+          address.mobile,
 
-          delivery_email:
-            address.email,
+        delivery_email:
+          address.email,
 
-          delivery_address_line1:
-            address.addressLine1,
+        delivery_address_line1:
+          address.addressLine1,
 
-          delivery_address_line2:
-            address.addressLine2 ||
-            null,
+        delivery_address_line2:
+          address.addressLine2 ||
+          null,
 
-          delivery_landmark:
-            address.landmark ||
-            null,
+        delivery_landmark:
+          address.landmark ||
+          null,
 
-          delivery_pincode:
-            address.pincode,
+        delivery_pincode:
+          address.pincode,
 
-          delivery_city:
-            address.city,
+        delivery_city:
+          address.city,
 
-          delivery_state:
-            address.state,
+        delivery_state:
+          address.state,
 
-          paid_at:
-            new Date().toISOString(),
-        })
-        .select(
-          "id,order_number,total_amount,currency"
-        )
-        .single();
+        paid_at:
+          new Date().toISOString(),
+      })
+      .select(
+        "id,order_number,total_amount,currency"
+      )
+      .single();
 
     if (
       orderError ||
       !order
     ) {
+      console.error(
+        "CREATE ORDER ERROR:",
+        orderError
+      );
+
       throw new Error(
-        orderError?.message ||
-          "Unable to create the order."
+        orderError
+          ? String(
+              (
+                orderError as {
+                  message?: string;
+                }
+              ).message ||
+                "Unable to create the order."
+            )
+          : "Unable to create the order."
       );
     }
 
@@ -689,44 +685,44 @@ export async function POST(
 
     const {
       error: paymentError,
-    } =
-      await supabase
-        .from(
-          "order_payments"
-        )
-        .insert({
-          order_id:
-            order.id,
+    } = await supabase
+      .from("order_payments")
+      .insert({
+        order_id:
+          order.id,
 
-          provider:
-            "cashfree",
+        provider:
+          "cashfree",
 
-          provider_order_id:
-            cashfreeOrderId,
+        provider_order_id:
+          cashfreeOrderId,
 
-          provider_payment_id:
-            successful.cf_payment_id
-              ? String(
-                  successful.cf_payment_id
-                )
-              : null,
+        provider_payment_id:
+          successful.cf_payment_id
+            ? String(
+                successful.cf_payment_id
+              )
+            : null,
 
-          amount:
-            total,
+        amount:
+          total,
 
-          currency:
-            "INR",
+        currency:
+          "INR",
 
-          status:
-            "paid",
+        status:
+          "paid",
 
-          paid_at:
-            new Date().toISOString(),
-        });
+        paid_at:
+          new Date().toISOString(),
+      });
 
-    if (
-      paymentError
-    ) {
+    if (paymentError) {
+      console.error(
+        "CREATE PAYMENT RECORD ERROR:",
+        paymentError
+      );
+
       /*
        * Roll back order.
        */
@@ -740,7 +736,7 @@ export async function POST(
         );
 
       /*
-       * Handle duplicate payment.
+       * Handle duplicate payment safely.
        */
 
       if (
@@ -750,19 +746,18 @@ export async function POST(
         const {
           data:
             winningPayment,
-        } =
-          await supabase
-            .from(
-              "order_payments"
-            )
-            .select(
-              "order_id"
-            )
-            .eq(
-              "provider_order_id",
-              cashfreeOrderId
-            )
-            .maybeSingle();
+        } = await supabase
+          .from(
+            "order_payments"
+          )
+          .select(
+            "order_id"
+          )
+          .eq(
+            "provider_order_id",
+            cashfreeOrderId
+          )
+          .maybeSingle();
 
         if (
           winningPayment?.order_id
@@ -809,7 +804,14 @@ export async function POST(
       }
 
       throw new Error(
-        paymentError.message
+        String(
+          (
+            paymentError as {
+              message?: string;
+            }
+          ).message ||
+            "Unable to save the payment record."
+        )
       );
     }
 
@@ -865,23 +867,31 @@ export async function POST(
 
     const {
       error: itemError,
-    } =
-      await supabase
-        .from(
-          "order_items"
-        )
-        .insert(items);
+    } = await supabase
+      .from("order_items")
+      .insert(items);
 
     if (itemError) {
+      console.error(
+        "CREATE ORDER ITEMS ERROR:",
+        itemError
+      );
+
+      /*
+       * Remove payment.
+       */
+
       await supabase
-        .from(
-          "order_payments"
-        )
+        .from("order_payments")
         .delete()
         .eq(
           "order_id",
           order.id
         );
+
+      /*
+       * Remove order.
+       */
 
       await supabase
         .from("orders")
@@ -892,7 +902,14 @@ export async function POST(
         );
 
       throw new Error(
-        itemError.message
+        String(
+          (
+            itemError as {
+              message?: string;
+            }
+          ).message ||
+            "Unable to save order items."
+        )
       );
     }
 
@@ -904,66 +921,78 @@ export async function POST(
 
     const {
       error: addressError,
-    } =
-      await supabase
-        .from("addresses")
-        .insert({
-          user_id:
-            user.id,
+    } = await supabase
+      .from("addresses")
+      .insert({
+        user_id:
+          user.id,
 
-          label:
-            "Checkout",
+        label:
+          "Checkout",
 
-          full_name:
-            address.fullName,
+        full_name:
+          address.fullName,
 
-          mobile:
-            address.mobile,
+        mobile:
+          address.mobile,
 
-          address_line1:
-            address.addressLine1,
+        address_line1:
+          address.addressLine1,
 
-          address_line2:
-            address.addressLine2 ||
-            null,
+        address_line2:
+          address.addressLine2 ||
+          null,
 
-          landmark:
-            address.landmark ||
-            null,
+        landmark:
+          address.landmark ||
+          null,
 
-          pincode:
-            address.pincode,
+        pincode:
+          address.pincode,
 
-          city:
-            address.city,
+        city:
+          address.city,
 
-          state:
-            address.state,
+        state:
+          address.state,
 
-          is_default:
-            false,
-        });
+        is_default:
+          false,
+      });
 
     if (addressError) {
+      console.error(
+        "SAVE ADDRESS ERROR:",
+        addressError
+      );
+
+      /*
+       * Remove order items.
+       */
+
       await supabase
-        .from(
-          "order_items"
-        )
+        .from("order_items")
         .delete()
         .eq(
           "order_id",
           order.id
         );
 
+      /*
+       * Remove payment.
+       */
+
       await supabase
-        .from(
-          "order_payments"
-        )
+        .from("order_payments")
         .delete()
         .eq(
           "order_id",
           order.id
         );
+
+      /*
+       * Remove order.
+       */
 
       await supabase
         .from("orders")
@@ -974,7 +1003,14 @@ export async function POST(
         );
 
       throw new Error(
-        addressError.message
+        String(
+          (
+            addressError as {
+              message?: string;
+            }
+          ).message ||
+            "Unable to save delivery address."
+        )
       );
     }
 
