@@ -1,8 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import StoryScrollButton from "@/components/StoryScrollButton";
-
+import StoryScrollButton from "../../../../components/StoryScrollButton";
 export const metadata: Metadata = {
   title: "The Story Behind Ghanugu Nuvvula Nune | Godavari Basket",
   description:
