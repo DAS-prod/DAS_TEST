@@ -25,6 +25,11 @@ type CartItem = Product & {
   quantity: number;
 };
 
+type Line = {
+  productId: string;
+  quantity: number;
+};
+
 type Address = {
   fullName: string;
   mobile: string;
@@ -53,9 +58,15 @@ declare global {
 const FREE_DELIVERY_THRESHOLD = 999;
 const PAID_DELIVERY_AMOUNT = 99;
 
-const CART_KEY = "godavari-basket-cart";
-const ADDRESS_KEY = "godavari-basket-checkout-address";
-const PAYMENT_ORDER_KEY = "godavari-basket-payment-order";
+const CART_KEY =
+  "godavari-basket-cart";
+
+const ADDRESS_KEY =
+  "godavari-basket-checkout-address";
+
+const PAYMENT_ORDER_KEY =
+  "godavari-basket-payment-order";
+
 const CHECKOUT_LINES_KEY =
   "godavari-basket-checkout-lines";
 
@@ -72,25 +83,195 @@ const emptyAddress: Address = {
 };
 
 function formatMoney(value: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 2,
-  }).format(Number(value || 0));
+  return new Intl.NumberFormat(
+    "en-IN",
+    {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 2,
+    }
+  ).format(Number(value || 0));
+}
+
+/*
+ * ==================================================
+ * CHECKOUT RECOVERY HELPERS
+ * ==================================================
+ */
+
+function saveCheckoutRecoveryData(
+  lines: Line[],
+  address: Address
+) {
+  const linesJson =
+    JSON.stringify(lines);
+
+  const addressJson =
+    JSON.stringify(address);
+
+  /*
+   * Primary storage.
+   */
+  try {
+    sessionStorage.setItem(
+      CHECKOUT_LINES_KEY,
+      linesJson
+    );
+
+    sessionStorage.setItem(
+      ADDRESS_KEY,
+      addressJson
+    );
+  } catch (error) {
+    console.error(
+      "Unable to save session checkout data:",
+      error
+    );
+  }
+
+  /*
+   * Backup storage.
+   */
+  try {
+    localStorage.setItem(
+      CHECKOUT_LINES_KEY,
+      linesJson
+    );
+
+    localStorage.setItem(
+      ADDRESS_KEY,
+      addressJson
+    );
+  } catch (error) {
+    console.error(
+      "Unable to save local checkout recovery data:",
+      error
+    );
+  }
+}
+
+function getCheckoutRecoveryData() {
+  let storedLines: string | null =
+    null;
+
+  let storedAddress: string | null =
+    null;
+
+  /*
+   * Try sessionStorage first.
+   */
+  try {
+    storedLines =
+      sessionStorage.getItem(
+        CHECKOUT_LINES_KEY
+      );
+
+    storedAddress =
+      sessionStorage.getItem(
+        ADDRESS_KEY
+      );
+  } catch (error) {
+    console.error(
+      "Unable to read session checkout data:",
+      error
+    );
+  }
+
+  /*
+   * Fallback to localStorage.
+   */
+  if (
+    !storedLines ||
+    !storedAddress
+  ) {
+    try {
+      storedLines =
+        storedLines ||
+        localStorage.getItem(
+          CHECKOUT_LINES_KEY
+        );
+
+      storedAddress =
+        storedAddress ||
+        localStorage.getItem(
+          ADDRESS_KEY
+        );
+    } catch (error) {
+      console.error(
+        "Unable to read local checkout recovery data:",
+        error
+      );
+    }
+  }
+
+  return {
+    storedLines,
+    storedAddress,
+  };
+}
+
+function clearCheckoutRecoveryData() {
+  try {
+    sessionStorage.removeItem(
+      CHECKOUT_LINES_KEY
+    );
+
+    sessionStorage.removeItem(
+      PAYMENT_ORDER_KEY
+    );
+
+    sessionStorage.removeItem(
+      ADDRESS_KEY
+    );
+  } catch (error) {
+    console.error(
+      "Unable to clear session checkout data:",
+      error
+    );
+  }
+
+  try {
+    localStorage.removeItem(
+      CHECKOUT_LINES_KEY
+    );
+
+    localStorage.removeItem(
+      ADDRESS_KEY
+    );
+  } catch (error) {
+    console.error(
+      "Unable to clear local checkout recovery data:",
+      error
+    );
+  }
 }
 
 export default function CheckoutPage() {
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [cartLoaded, setCartLoaded] = useState(false);
+  const [cart, setCart] =
+    useState<CartItem[]>([]);
+
+  const [cartLoaded, setCartLoaded] =
+    useState(false);
 
   const [address, setAddress] =
-    useState<Address>(emptyAddress);
+    useState<Address>(
+      emptyAddress
+    );
 
-  const [user, setUser] = useState<any>(null);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const [success, setSuccess] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] =
+    useState<any>(null);
+
+  const [busy, setBusy] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
+
+  const [success, setSuccess] =
+    useState<any>(null);
+
+  const [loading, setLoading] =
+    useState(true);
 
   /*
    * --------------------------------------------------
@@ -105,14 +286,20 @@ export default function CheckoutPage() {
       /*
        * Load cart.
        */
+
       try {
         const raw =
-          localStorage.getItem(CART_KEY);
+          localStorage.getItem(
+            CART_KEY
+          );
 
         if (raw) {
-          const parsed = JSON.parse(raw);
+          const parsed =
+            JSON.parse(raw);
 
-          if (Array.isArray(parsed)) {
+          if (
+            Array.isArray(parsed)
+          ) {
             setCart(parsed);
           }
         }
@@ -127,18 +314,24 @@ export default function CheckoutPage() {
       /*
        * Load saved address.
        */
+
       try {
         const raw =
           sessionStorage.getItem(
             ADDRESS_KEY
+          ) ||
+          localStorage.getItem(
+            ADDRESS_KEY
           );
 
         if (raw) {
-          const parsed = JSON.parse(raw);
+          const parsed =
+            JSON.parse(raw);
 
           if (
             parsed &&
-            typeof parsed === "object"
+            typeof parsed ===
+              "object"
           ) {
             setAddress({
               ...emptyAddress,
@@ -155,9 +348,11 @@ export default function CheckoutPage() {
       /*
        * Get authenticated user.
        */
+
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } =
+        await supabase.auth.getUser();
 
       if (!mounted) return;
 
@@ -174,7 +369,8 @@ export default function CheckoutPage() {
       }
 
       const fullName =
-        user?.user_metadata?.full_name;
+        user?.user_metadata
+          ?.full_name;
 
       if (fullName) {
         setAddress((current) => ({
@@ -191,17 +387,19 @@ export default function CheckoutPage() {
     void initialise();
 
     /*
-     * Listen for Supabase auth changes.
-     *
-     * This is particularly important immediately
-     * after login.
+     * Listen for auth changes.
      */
+
     const {
-      data: { subscription },
+      data: {
+        subscription,
+      },
     } =
       supabase.auth.onAuthStateChange(
         (_event, session) => {
-          setUser(session?.user || null);
+          setUser(
+            session?.user || null
+          );
         }
       );
 
@@ -230,7 +428,10 @@ export default function CheckoutPage() {
         "Unable to save cart."
       );
     }
-  }, [cart, cartLoaded]);
+  }, [
+    cart,
+    cartLoaded,
+  ]);
 
   /*
    * --------------------------------------------------
@@ -240,28 +441,41 @@ export default function CheckoutPage() {
 
   const subtotal = useMemo(() => {
     return cart.reduce(
-      (sum, item) =>
+      (
+        sum,
+        item
+      ) =>
         sum +
         Number(item.price) *
-          Number(item.quantity),
+          Number(
+            item.quantity
+          ),
       0
     );
   }, [cart]);
 
   const shipping =
-    subtotal > FREE_DELIVERY_THRESHOLD
+    subtotal >
+    FREE_DELIVERY_THRESHOLD
       ? 0
       : cart.length > 0
       ? PAID_DELIVERY_AMOUNT
       : 0;
 
   const total = Number(
-    (subtotal + shipping).toFixed(2)
+    (
+      subtotal +
+      shipping
+    ).toFixed(2)
   );
 
   const count = cart.reduce(
-    (sum, item) =>
-      sum + Number(item.quantity),
+    (
+      sum,
+      item
+    ) =>
+      sum +
+      Number(item.quantity),
     0
   );
 
@@ -287,6 +501,14 @@ export default function CheckoutPage() {
         ADDRESS_KEY,
         JSON.stringify(next)
       );
+
+      /*
+       * Keep backup copy.
+       */
+      localStorage.setItem(
+        ADDRESS_KEY,
+        JSON.stringify(next)
+      );
     } catch {
       // Ignore storage errors.
     }
@@ -309,22 +531,29 @@ export default function CheckoutPage() {
             ? {
                 ...item,
                 quantity:
-                  Number(item.quantity) +
+                  Number(
+                    item.quantity
+                  ) +
                   delta,
               }
             : item
         )
         .filter(
           (item) =>
-            Number(item.quantity) > 0
+            Number(
+              item.quantity
+            ) > 0
         )
     );
   }
 
-  function removeItem(id: number) {
+  function removeItem(
+    id: number
+  ) {
     setCart((current) =>
       current.filter(
-        (item) => item.id !== id
+        (item) =>
+          item.id !== id
       )
     );
   }
@@ -341,7 +570,10 @@ export default function CheckoutPage() {
     }
 
     await new Promise<void>(
-      (resolve, reject) => {
+      (
+        resolve,
+        reject
+      ) => {
         const existing =
           document.querySelector(
             'script[data-cashfree="v3"]'
@@ -351,7 +583,9 @@ export default function CheckoutPage() {
           existing.addEventListener(
             "load",
             () => resolve(),
-            { once: true }
+            {
+              once: true,
+            }
           );
 
           existing.addEventListener(
@@ -362,7 +596,9 @@ export default function CheckoutPage() {
                   "Cashfree SDK failed to load."
                 )
               ),
-            { once: true }
+            {
+              once: true,
+            }
           );
 
           return;
@@ -377,7 +613,9 @@ export default function CheckoutPage() {
           "https://sdk.cashfree.com/js/v3/cashfree.js";
 
         script.async = true;
-        script.dataset.cashfree = "v3";
+
+        script.dataset.cashfree =
+          "v3";
 
         script.onload = () =>
           resolve();
@@ -410,14 +648,16 @@ export default function CheckoutPage() {
     setMessage("");
 
     /*
-     * Get the CURRENT session immediately before
-     * starting payment.
-     *
-     * This prevents a stale user state from being used.
+     * Get CURRENT session immediately
+     * before starting payment.
      */
+
     const {
-      data: { session },
-      error: sessionError,
+      data: {
+        session,
+      },
+      error:
+        sessionError,
     } =
       await supabase.auth.getSession();
 
@@ -440,6 +680,7 @@ export default function CheckoutPage() {
       setMessage(
         "Please wait while your cart is loading."
       );
+
       return;
     }
 
@@ -447,6 +688,7 @@ export default function CheckoutPage() {
       setMessage(
         "Your cart is empty."
       );
+
       return;
     }
 
@@ -462,6 +704,7 @@ export default function CheckoutPage() {
       setMessage(
         "Please complete all required delivery details."
       );
+
       return;
     }
 
@@ -469,54 +712,56 @@ export default function CheckoutPage() {
 
     try {
       /*
-       * Save checkout information BEFORE opening
-       * Cashfree.
+       * ------------------------------------------------
+       * SAVE CHECKOUT RECOVERY DATA
+       * ------------------------------------------------
        */
-      sessionStorage.setItem(
-        CHECKOUT_LINES_KEY,
-        JSON.stringify(
-          cart.map((item) => ({
-            productId: String(
-              item.id
-            ),
-            quantity:
-              Number(item.quantity),
-          }))
-        )
-      );
 
-      sessionStorage.setItem(
-        ADDRESS_KEY,
-        JSON.stringify(address)
+      const checkoutLines: Line[] =
+        cart.map((item) => ({
+          productId:
+            String(item.id),
+
+          quantity:
+            Number(
+              item.quantity
+            ),
+        }));
+
+      saveCheckoutRecoveryData(
+        checkoutLines,
+        address
       );
 
       /*
-       * Create server-side Cashfree order.
+       * ------------------------------------------------
+       * CREATE SERVER-SIDE CASHFREE ORDER
+       * ------------------------------------------------
        */
-      const response = await fetch(
-        "/api/checkout/create-order",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
 
-            Authorization: `Bearer ${session.access_token}`,
-          },
+      const response =
+        await fetch(
+          "/api/checkout/create-order",
+          {
+            method: "POST",
 
-          body: JSON.stringify({
-            lines: cart.map((item) => ({
-              productId: String(
-                item.id
-              ),
-              quantity:
-                Number(item.quantity),
-            })),
+            headers: {
+              "Content-Type":
+                "application/json",
 
-            address,
-          }),
-        }
-      );
+              Authorization:
+                `Bearer ${session.access_token}`,
+            },
+
+            body:
+              JSON.stringify({
+                lines:
+                  checkoutLines,
+
+                address,
+              }),
+          }
+        );
 
       const data =
         await response.json();
@@ -531,10 +776,24 @@ export default function CheckoutPage() {
       /*
        * Save Cashfree order ID.
        */
+
       sessionStorage.setItem(
         PAYMENT_ORDER_KEY,
         data.cashfree.orderId
       );
+
+      /*
+       * Backup Cashfree order ID.
+       */
+
+      localStorage.setItem(
+        PAYMENT_ORDER_KEY,
+        data.cashfree.orderId
+      );
+
+      /*
+       * Load Cashfree.
+       */
 
       await loadCashfree();
 
@@ -555,7 +814,8 @@ export default function CheckoutPage() {
           data.cashfree
             .paymentSessionId,
 
-        redirectTarget: "_self",
+        redirectTarget:
+          "_self",
       });
     } catch (err) {
       setMessage(
@@ -592,17 +852,17 @@ export default function CheckoutPage() {
         setMessage("");
 
         /*
-         * IMPORTANT:
-         *
-         * Ask Supabase to refresh/restore the current
-         * authentication session after returning from
-         * Cashfree.
+         * ------------------------------------------------
+         * RESTORE AUTHENTICATION
+         * ------------------------------------------------
          */
-        const {
+
+        let {
           data: {
             session,
           },
-          error: sessionError,
+          error:
+            sessionError,
         } =
           await supabase.auth.getSession();
 
@@ -612,35 +872,45 @@ export default function CheckoutPage() {
           !session.user
         ) {
           /*
-           * Try getUser as a second attempt.
+           * Try getUser.
            */
+
           const {
             data: {
-              user: refreshedUser,
+              user:
+                refreshedUser,
             },
           } =
             await supabase.auth.getUser();
 
-          if (!refreshedUser) {
+          if (
+            !refreshedUser
+          ) {
             throw new Error(
               "Your login session could not be restored after payment. The payment may have succeeded, but the order could not be verified automatically. Please contact support with your Cashfree order ID: " +
                 orderId
             );
           }
+
+          /*
+           * Get session again.
+           */
+
+          const {
+            data: {
+              session:
+                restoredSession,
+            },
+          } =
+            await supabase.auth.getSession();
+
+          session =
+            restoredSession;
         }
 
-        /*
-         * Get a fresh session again after getUser().
-         */
-        const {
-          data: {
-            session: freshSession,
-          },
-        } =
-          await supabase.auth.getSession();
-
         if (
-          !freshSession?.access_token
+          !session?.access_token ||
+          !session.user
         ) {
           throw new Error(
             "Your login session could not be restored after payment. The payment may have succeeded, but the order could not be verified automatically. Please contact support with your Cashfree order ID: " +
@@ -649,17 +919,24 @@ export default function CheckoutPage() {
         }
 
         /*
-         * Recover checkout data.
+         * Keep user state current.
          */
-        const storedLines =
-          sessionStorage.getItem(
-            CHECKOUT_LINES_KEY
-          );
 
-        const storedAddress =
-          sessionStorage.getItem(
-            ADDRESS_KEY
-          );
+        setUser(
+          session.user
+        );
+
+        /*
+         * ------------------------------------------------
+         * RECOVER CHECKOUT DATA
+         * ------------------------------------------------
+         */
+
+        const {
+          storedLines,
+          storedAddress,
+        } =
+          getCheckoutRecoveryData();
 
         if (
           !storedLines ||
@@ -671,8 +948,8 @@ export default function CheckoutPage() {
           );
         }
 
-        let parsedLines;
-        let parsedAddress;
+        let parsedLines: Line[];
+        let parsedAddress: Address;
 
         try {
           parsedLines =
@@ -692,8 +969,43 @@ export default function CheckoutPage() {
         }
 
         /*
-         * Verify payment on server.
+         * Validate recovered data before sending it.
          */
+
+        if (
+          !Array.isArray(
+            parsedLines
+          ) ||
+          parsedLines.length === 0
+        ) {
+          throw new Error(
+            "Saved checkout cart is invalid. Your cart has not been cleared. Cashfree order: " +
+              orderId
+          );
+        }
+
+        if (
+          !parsedAddress ||
+          !parsedAddress.fullName ||
+          !parsedAddress.mobile ||
+          !parsedAddress.email ||
+          !parsedAddress.addressLine1 ||
+          !parsedAddress.pincode ||
+          !parsedAddress.city ||
+          !parsedAddress.state
+        ) {
+          throw new Error(
+            "Saved delivery details are incomplete. Your cart has not been cleared. Cashfree order: " +
+              orderId
+          );
+        }
+
+        /*
+         * ------------------------------------------------
+         * VERIFY PAYMENT ON SERVER
+         * ------------------------------------------------
+         */
+
         const response =
           await fetch(
             "/api/checkout/verify",
@@ -704,19 +1016,21 @@ export default function CheckoutPage() {
                 "Content-Type":
                   "application/json",
 
-                Authorization: `Bearer ${freshSession.access_token}`,
+                Authorization:
+                  `Bearer ${session.access_token}`,
               },
 
-              body: JSON.stringify({
-                cashfreeOrderId:
-                  orderId,
+              body:
+                JSON.stringify({
+                  cashfreeOrderId:
+                    orderId,
 
-                lines:
-                  parsedLines,
+                  lines:
+                    parsedLines,
 
-                address:
-                  parsedAddress,
-              }),
+                  address:
+                    parsedAddress,
+                }),
             }
           );
 
@@ -745,15 +1059,21 @@ export default function CheckoutPage() {
             result.order
               .order_number,
 
-          amount: Number(
-            result.order
-              .total_amount
-          ),
+          amount:
+            Number(
+              result.order
+                .total_amount
+            ),
 
           currency:
             result.order
-              .currency || "INR",
+              .currency ||
+            "INR",
         };
+
+        /*
+         * Save success information first.
+         */
 
         sessionStorage.setItem(
           "godavari-basket-order-success",
@@ -763,25 +1083,23 @@ export default function CheckoutPage() {
         );
 
         /*
-         * ONLY NOW clear cart.
+         * ------------------------------------------------
+         * ONLY AFTER SERVER SUCCESS:
+         * CLEAR CART
+         * ------------------------------------------------
          */
+
         localStorage.removeItem(
           CART_KEY
         );
 
         setCart([]);
 
-        sessionStorage.removeItem(
-          CHECKOUT_LINES_KEY
-        );
+        clearCheckoutRecoveryData();
 
-        sessionStorage.removeItem(
-          PAYMENT_ORDER_KEY
-        );
-
-        sessionStorage.removeItem(
-          ADDRESS_KEY
-        );
+        /*
+         * Redirect home.
+         */
 
         window.location.href =
           "/?order_success=1";
@@ -796,7 +1114,7 @@ export default function CheckoutPage() {
           setBusy(false);
 
           /*
-           * Do NOT clear cart.
+           * DO NOT clear cart.
            */
 
           window.history.replaceState(
@@ -1097,106 +1415,113 @@ export default function CheckoutPage() {
             </div>
 
             <div className="mt-6 space-y-4">
-              {cart.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex gap-3 border-b pb-4"
-                >
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="h-16 w-16 rounded-xl bg-cream object-contain p-2"
-                  />
+              {cart.map(
+                (item) => (
+                  <div
+                    key={item.id}
+                    className="flex gap-3 border-b pb-4"
+                  >
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="h-16 w-16 rounded-xl bg-cream object-contain p-2"
+                    />
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex justify-between gap-2">
-                      <div>
-                        <h3 className="text-sm font-semibold">
-                          {item.name}
-                        </h3>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex justify-between gap-2">
+                        <div>
+                          <h3 className="text-sm font-semibold">
+                            {item.name}
+                          </h3>
 
-                        <p className="mt-1 text-xs text-gray-500">
-                          {item.size}
-                        </p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            {item.size}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeItem(
+                              item.id
+                            )
+                          }
+                          className="text-gray-400"
+                          aria-label={`Remove ${item.name}`}
+                        >
+                          <Trash2
+                            size={16}
+                          />
+                        </button>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          removeItem(
-                            item.id
-                          )
-                        }
-                        className="text-gray-400"
-                        aria-label={`Remove ${item.name}`}
-                      >
-                        <Trash2
-                          size={16}
-                        />
-                      </button>
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between">
-                      <b>
-                        {formatMoney(
-                          Number(
-                            item.price
-                          ) *
+                      <div className="mt-3 flex items-center justify-between">
+                        <b>
+                          {formatMoney(
                             Number(
+                              item.price
+                            ) *
+                              Number(
+                                item.quantity
+                              )
+                          )}
+                        </b>
+
+                        <div className="flex items-center rounded-lg border">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              qty(
+                                item.id,
+                                -1
+                              )
+                            }
+                            className="grid h-8 w-8 place-items-center"
+                          >
+                            <Minus
+                              size={14}
+                            />
+                          </button>
+
+                          <span className="min-w-6 text-center text-sm">
+                            {
                               item.quantity
-                            )
-                        )}
-                      </b>
+                            }
+                          </span>
 
-                      <div className="flex items-center rounded-lg border">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            qty(
-                              item.id,
-                              -1
-                            )
-                          }
-                          className="grid h-8 w-8 place-items-center"
-                        >
-                          <Minus
-                            size={14}
-                          />
-                        </button>
-
-                        <span className="min-w-6 text-center text-sm">
-                          {
-                            item.quantity
-                          }
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            qty(
-                              item.id,
-                              1
-                            )
-                          }
-                          className="grid h-8 w-8 place-items-center"
-                        >
-                          <Plus
-                            size={14}
-                          />
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              qty(
+                                item.id,
+                                1
+                              )
+                            }
+                            className="grid h-8 w-8 place-items-center"
+                          >
+                            <Plus
+                              size={14}
+                            />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              )}
             </div>
 
             {cart.length > 0 ? (
               <>
                 <div className="mt-6 space-y-3 text-sm">
                   <div className="flex justify-between text-gray-500">
-                    <span>Items</span>
-                    <span>{count}</span>
+                    <span>
+                      Items
+                    </span>
+
+                    <span>
+                      {count}
+                    </span>
                   </div>
 
                   <div className="flex items-center justify-between text-gray-500">
@@ -1233,7 +1558,9 @@ export default function CheckoutPage() {
                     )}
 
                   <div className="flex justify-between border-t pt-4 text-lg">
-                    <b>Total</b>
+                    <b>
+                      Total
+                    </b>
 
                     <b>
                       {formatMoney(
@@ -1246,7 +1573,8 @@ export default function CheckoutPage() {
                 <button
                   type="submit"
                   disabled={
-                    busy || !user
+                    busy ||
+                    !user
                   }
                   className="mt-6 flex min-h-[54px] w-full items-center justify-center gap-3 rounded-xl bg-forest font-semibold text-white disabled:opacity-60"
                 >
