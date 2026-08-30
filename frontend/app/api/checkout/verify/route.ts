@@ -54,9 +54,7 @@ function calculateShipping(
     : PAID_DELIVERY_AMOUNT;
 }
 
-async function getProducts(): Promise<
-  Product[]
-> {
+async function getProducts(): Promise<Product[]> {
   const response = await fetch(
     `${API_URL}/api/products`,
     {
@@ -87,18 +85,21 @@ export async function POST(
 ) {
   try {
     /*
-     * --------------------------------------------------
+     * ==================================================
      * 1. AUTHENTICATION
-     * --------------------------------------------------
+     * ==================================================
      */
 
+    const authorization =
+      request.headers.get(
+        "authorization"
+      );
+
     const token =
-      request.headers
-        .get("authorization")
-        ?.replace(
-          /^Bearer\s+/i,
-          ""
-        );
+      authorization?.replace(
+        /^Bearer\s+/i,
+        ""
+      );
 
     if (!token) {
       return NextResponse.json(
@@ -123,26 +124,33 @@ export async function POST(
       authError ||
       !user
     ) {
+      console.error(
+        "VERIFY AUTH ERROR:",
+        authError
+      );
+
       return NextResponse.json(
         {
           error:
-            "Authentication required.",
+            "Your payment was received, but your login session could not be verified. Please contact support with your Cashfree order ID.",
         },
         { status: 401 }
       );
     }
 
     /*
-     * --------------------------------------------------
-     * 2. READ VERIFICATION DATA
-     * --------------------------------------------------
+     * ==================================================
+     * 2. READ REQUEST
+     * ==================================================
      */
 
     const body =
       await request.json();
 
     const cashfreeOrderId =
-      body.cashfreeOrderId as string;
+      String(
+        body.cashfreeOrderId || ""
+      ).trim();
 
     const lines =
       body.lines as Line[];
@@ -183,9 +191,9 @@ export async function POST(
     }
 
     /*
-     * --------------------------------------------------
-     * 3. ASK CASHFREE FOR ACTUAL PAYMENT STATUS
-     * --------------------------------------------------
+     * ==================================================
+     * 3. GET ACTUAL CASHFREE PAYMENT
+     * ==================================================
      */
 
     const [
@@ -195,10 +203,21 @@ export async function POST(
       getCashfreeOrder(
         cashfreeOrderId
       ),
+
       getCashfreePayments(
         cashfreeOrderId
       ),
     ]);
+
+    if (!cfOrder) {
+      return NextResponse.json(
+        {
+          error:
+            "Cashfree order could not be found.",
+        },
+        { status: 400 }
+      );
+    }
 
     const successful =
       Array.isArray(payments)
@@ -213,31 +232,26 @@ export async function POST(
         : null;
 
     /*
-     * PAYMENT FAILED / CANCELLED / PENDING
+     * Payment isn't confirmed yet.
      *
-     * IMPORTANT:
-     *
-     * We return 400.
-     *
-     * The checkout page catches this.
-     *
-     * The cart is NOT cleared.
+     * DO NOT create order.
+     * DO NOT clear cart.
      */
 
     if (!successful) {
       return NextResponse.json(
         {
           error:
-            "Payment was not successful. Your cart is still saved. Please retry the payment.",
+            "Payment is not yet confirmed by Cashfree. Your cart has not been cleared. Please wait a moment and retry.",
         },
         { status: 400 }
       );
     }
 
     /*
-     * --------------------------------------------------
-     * 4. VALIDATE PRODUCTS
-     * --------------------------------------------------
+     * ==================================================
+     * 4. LOAD PRODUCTS
+     * ==================================================
      */
 
     const products =
@@ -258,6 +272,12 @@ export async function POST(
         )
       );
 
+    /*
+     * ==================================================
+     * 5. VALIDATE CART
+     * ==================================================
+     */
+
     const validated =
       lines.map((line) => {
         const product =
@@ -267,15 +287,18 @@ export async function POST(
             )
           );
 
+        const quantity =
+          Number(line.quantity);
+
         if (
           !product ||
           !product.active ||
           Number(product.stock) <= 0 ||
           !Number.isInteger(
-            line.quantity
+            quantity
           ) ||
-          line.quantity < 1 ||
-          line.quantity > 50
+          quantity < 1 ||
+          quantity > 50
         ) {
           throw new Error(
             "One or more products are unavailable."
@@ -288,9 +311,7 @@ export async function POST(
           );
 
         if (
-          !Number.isFinite(
-            price
-          ) ||
+          !Number.isFinite(price) ||
           price <= 0
         ) {
           throw new Error(
@@ -300,15 +321,14 @@ export async function POST(
 
         return {
           product,
-          quantity:
-            line.quantity,
+          quantity,
         };
       });
 
     /*
-     * --------------------------------------------------
-     * 5. CALCULATE SERVER-SIDE TOTAL
-     * --------------------------------------------------
+     * ==================================================
+     * 6. SERVER-SIDE TOTAL
+     * ==================================================
      */
 
     const subtotal =
@@ -346,16 +366,14 @@ export async function POST(
       );
 
     /*
-     * --------------------------------------------------
-     * 6. VERIFY PAYMENT AMOUNT
-     * --------------------------------------------------
+     * ==================================================
+     * 7. VERIFY PAYMENT AMOUNT
+     * ==================================================
      */
 
     const paidAmount =
       Number(
-        successful.payment_amount ??
-          successful.order_amount ??
-          cfOrder.order_amount
+        successful.payment_amount
       );
 
     const orderAmount =
@@ -374,7 +392,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Unable to verify the payment amount.",
+            "Unable to verify the Cashfree payment amount.",
         },
         { status: 400 }
       );
@@ -391,25 +409,33 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "Payment amount does not match the order total.",
+            "Payment amount does not match the order total. Your cart has not been cleared.",
         },
         { status: 400 }
       );
     }
 
     /*
-     * --------------------------------------------------
-     * 7. VERIFY CURRENCY
-     * --------------------------------------------------
+     * ==================================================
+     * 8. VERIFY CURRENCY
+     * ==================================================
      */
 
+    const orderCurrency =
+      String(
+        cfOrder.order_currency ||
+          ""
+      ).toUpperCase();
+
+    const paymentCurrency =
+      String(
+        successful.payment_currency ||
+          ""
+      ).toUpperCase();
+
     if (
-      String(
-        cfOrder.order_currency
-      ).toUpperCase() !== "INR" ||
-      String(
-        successful.payment_currency
-      ).toUpperCase() !== "INR"
+      orderCurrency !== "INR" ||
+      paymentCurrency !== "INR"
     ) {
       return NextResponse.json(
         {
@@ -421,25 +447,23 @@ export async function POST(
     }
 
     /*
-     * --------------------------------------------------
-     * 8. SERVICE SUPABASE CLIENT
-     * --------------------------------------------------
+     * ==================================================
+     * 9. SERVICE SUPABASE
+     * ==================================================
      */
 
     const supabase =
       createServiceSupabase();
 
     /*
-     * --------------------------------------------------
-     * 9. IDEMPOTENCY CHECK
-     *
-     * If Cashfree/browser calls verification twice,
-     * don't create two orders.
-     * --------------------------------------------------
+     * ==================================================
+     * 10. IDEMPOTENCY CHECK
+     * ==================================================
      */
 
     const {
       data: existingPayment,
+      error: existingPaymentError,
     } =
       await supabase
         .from(
@@ -455,10 +479,20 @@ export async function POST(
         .maybeSingle();
 
     if (
+      existingPaymentError
+    ) {
+      throw new Error(
+        existingPaymentError.message
+      );
+    }
+
+    if (
       existingPayment?.order_id
     ) {
       const {
         data: existingOrder,
+        error:
+          existingOrderError,
       } =
         await supabase
           .from("orders")
@@ -469,45 +503,74 @@ export async function POST(
             "id",
             existingPayment.order_id
           )
-          .single();
+          .maybeSingle();
 
-      if (!existingOrder) {
-        throw new Error(
-          "Payment exists but its order could not be found."
-        );
-      }
-
+      /*
+       * If the payment exists but order doesn't,
+       * remove the orphan payment record so the
+       * verified payment can be rebuilt.
+       */
       if (
-        existingOrder.user_id !==
-        user.id
+        !existingOrder
       ) {
-        return NextResponse.json(
-          {
-            error:
-              "This payment does not belong to this customer.",
-          },
-          { status: 403 }
-        );
-      }
+        await supabase
+          .from(
+            "order_payments"
+          )
+          .delete()
+          .eq(
+            "provider_order_id",
+            cashfreeOrderId
+          );
+      } else {
+        if (
+          existingOrderError
+        ) {
+          throw new Error(
+            existingOrderError.message
+          );
+        }
 
-      return NextResponse.json({
-        success: true,
-        order: {
-          id: existingOrder.id,
-          order_number:
-            existingOrder.order_number,
-          total_amount:
-            existingOrder.total_amount,
-          currency:
-            existingOrder.currency,
-        },
-      });
+        if (
+          existingOrder.user_id !==
+          user.id
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                "This payment does not belong to this customer.",
+            },
+            { status: 403 }
+          );
+        }
+
+        /*
+         * Already successfully processed.
+         */
+        return NextResponse.json({
+          success: true,
+
+          order: {
+            id:
+              existingOrder.id,
+
+            order_number:
+              existingOrder.order_number,
+
+            total_amount:
+              existingOrder.total_amount,
+
+            currency:
+              existingOrder.currency,
+          },
+        });
+      }
     }
 
     /*
-     * --------------------------------------------------
-     * 10. CREATE ORDER
-     * --------------------------------------------------
+     * ==================================================
+     * 11. CREATE ORDER
+     * ==================================================
      */
 
     const {
@@ -517,7 +580,8 @@ export async function POST(
       await supabase
         .from("orders")
         .insert({
-          user_id: user.id,
+          user_id:
+            user.id,
 
           status:
             "confirmed",
@@ -584,12 +648,14 @@ export async function POST(
     }
 
     /*
-     * --------------------------------------------------
-     * 11. SAVE PAYMENT
-     * --------------------------------------------------
+     * ==================================================
+     * 12. CREATE PAYMENT RECORD
+     * ==================================================
      */
 
-    const paymentInsert =
+    const {
+      error: paymentError,
+    } =
       await supabase
         .from(
           "order_payments"
@@ -624,18 +690,26 @@ export async function POST(
             new Date().toISOString(),
         });
 
-    /*
-     * --------------------------------------------------
-     * 12. HANDLE DUPLICATE PAYMENT
-     * --------------------------------------------------
-     */
-
     if (
-      paymentInsert.error
+      paymentError
     ) {
+      /*
+       * Roll back order.
+       */
+      await supabase
+        .from("orders")
+        .delete()
+        .eq(
+          "id",
+          order.id
+        );
+
+      /*
+       * Handle duplicate payment safely.
+       */
       if (
-        paymentInsert.error
-          .code === "23505"
+        paymentError.code ===
+        "23505"
       ) {
         const {
           data:
@@ -654,14 +728,6 @@ export async function POST(
             )
             .maybeSingle();
 
-        await supabase
-          .from("orders")
-          .delete()
-          .eq(
-            "id",
-            order.id
-          );
-
         if (
           winningPayment?.order_id
         ) {
@@ -678,44 +744,43 @@ export async function POST(
                 "id",
                 winningPayment.order_id
               )
-              .single();
+              .maybeSingle();
 
           if (
             winningOrder &&
             winningOrder.user_id ===
               user.id
           ) {
-            return NextResponse.json(
-              {
-                success: true,
-                order: {
-                  id:
-                    winningOrder.id,
+            return NextResponse.json({
+              success: true,
 
-                  order_number:
-                    winningOrder.order_number,
+              order: {
+                id:
+                  winningOrder.id,
 
-                  total_amount:
-                    winningOrder.total_amount,
+                order_number:
+                  winningOrder.order_number,
 
-                  currency:
-                    winningOrder.currency,
-                },
-              }
-            );
+                total_amount:
+                  winningOrder.total_amount,
+
+                currency:
+                  winningOrder.currency,
+              },
+            });
           }
         }
       }
 
       throw new Error(
-        paymentInsert.error.message
+        paymentError.message
       );
     }
 
     /*
-     * --------------------------------------------------
-     * 13. SAVE ORDER ITEMS
-     * --------------------------------------------------
+     * ==================================================
+     * 13. CREATE ORDER ITEMS
+     * ==================================================
      */
 
     const items =
@@ -772,6 +837,19 @@ export async function POST(
         .insert(items);
 
     if (itemError) {
+      /*
+       * Remove payment + order.
+       */
+      await supabase
+        .from(
+          "order_payments"
+        )
+        .delete()
+        .eq(
+          "order_id",
+          order.id
+        );
+
       await supabase
         .from("orders")
         .delete()
@@ -786,9 +864,9 @@ export async function POST(
     }
 
     /*
-     * --------------------------------------------------
-     * 14. SAVE DELIVERY ADDRESS
-     * --------------------------------------------------
+     * ==================================================
+     * 14. SAVE ADDRESS
+     * ==================================================
      */
 
     const {
@@ -834,6 +912,35 @@ export async function POST(
         });
 
     if (addressError) {
+      /*
+       * Remove order items.
+       */
+      await supabase
+        .from(
+          "order_items"
+        )
+        .delete()
+        .eq(
+          "order_id",
+          order.id
+        );
+
+      /*
+       * Remove payment.
+       */
+      await supabase
+        .from(
+          "order_payments"
+        )
+        .delete()
+        .eq(
+          "order_id",
+          order.id
+        );
+
+      /*
+       * Remove order.
+       */
       await supabase
         .from("orders")
         .delete()
@@ -848,24 +955,24 @@ export async function POST(
     }
 
     /*
-     * --------------------------------------------------
-     * 15. PAYMENT VERIFIED SUCCESSFULLY
-     * --------------------------------------------------
-     *
-     * The frontend now receives success.
-     *
-     * ONLY the frontend clears localStorage cart.
+     * ==================================================
+     * 15. SUCCESS
+     * ==================================================
      */
 
     return NextResponse.json({
       success: true,
 
       order: {
-        id: order.id,
+        id:
+          order.id,
+
         order_number:
           order.order_number,
+
         total_amount:
           order.total_amount,
+
         currency:
           order.currency,
       },
