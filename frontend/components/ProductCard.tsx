@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -82,9 +83,11 @@ function toggleWishlistItem(id: number): boolean {
 export default function ProductCard({
   product,
   onAdd,
+  onCartOpen,
 }: {
   product: Product;
   onAdd: (p: Product) => void;
+  onCartOpen: () => void;
 }) {
   const [details, setDetails] =
     useState(false);
@@ -109,13 +112,8 @@ export default function ProductCard({
       );
     };
 
-    // Initial state
     updateLikedState();
 
-    /*
-     * If another product/card/header changes
-     * the wishlist, update this card too.
-     */
     window.addEventListener(
       "wishlist-updated",
       updateLikedState
@@ -133,8 +131,8 @@ export default function ProductCard({
     e: React.MouseEvent<HTMLButtonElement>
   ) {
     /*
-     * VERY IMPORTANT:
-     * Prevent the click from opening the product modal.
+     * Prevent the click from opening
+     * the product modal.
      */
     e.preventDefault();
     e.stopPropagation();
@@ -151,6 +149,10 @@ export default function ProductCard({
     setDetails(true);
   }
 
+  /*
+   * Add the selected quantity to the basket,
+   * then automatically open the existing cart.
+   */
   function add() {
     for (
       let i = 0;
@@ -162,6 +164,29 @@ export default function ProductCard({
 
     setQuantity(1);
     setDetails(false);
+
+    /*
+     * Automatically open the cart after
+     * the product has been added.
+     */
+    onCartOpen();
+  }
+
+  /*
+   * Direct ADD TO BASKET button.
+   */
+  function handleQuickAdd(
+    e: React.MouseEvent<HTMLButtonElement>
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    onAdd(product);
+
+    /*
+     * Automatically open the cart.
+     */
+    onCartOpen();
   }
 
   return (
@@ -257,12 +282,7 @@ export default function ProductCard({
 
             <button
               type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-
-                onAdd(product);
-              }}
+              onClick={handleQuickAdd}
             >
               <ShoppingBag size={14} />
 
@@ -410,3 +430,4 @@ export default function ProductCard({
     </>
   );
 }
+
