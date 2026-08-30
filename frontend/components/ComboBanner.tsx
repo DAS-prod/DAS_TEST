@@ -25,23 +25,24 @@ export default function ComboBanner() {
                 <ArrowRight size={14} />
               </a>
 
-              <a
-                href="/gifting"
-                className="inline-flex items-center gap-2 rounded-full bg-[#123524] px-5 py-3 text-sm font-semibold text-white transition-all duration-300 hover:bg-[#0d291c] hover:scale-[1.02]"
-              >
+              <a href="/gifting" className="gold-button">
                 EXPLORE GIFTING
                 <Gift size={14} />
               </a>
             </div>
           </div>
 
-          <div className="combo-image" aria-hidden="true">
+          <div
+            className="combo-image relative overflow-hidden"
+            aria-hidden="true"
+          >
             <img
               src="/images/combos-gifting-godavari.jpg"
               alt="Godavari Basket curated food gifts and hampers"
+              className="h-full w-full object-cover object-center"
             />
 
-            <span>
+            <span className="absolute right-5 top-5">
               <Gift size={22} />
             </span>
           </div>
