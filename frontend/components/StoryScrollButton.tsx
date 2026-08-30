@@ -4,7 +4,10 @@ export default function StoryScrollButton() {
   const scrollToStory = () => {
     document
       .getElementById("story")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
   };
 
   return (
