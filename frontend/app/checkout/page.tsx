@@ -53,6 +53,12 @@ declare global {
 const FREE_DELIVERY_THRESHOLD = 999;
 const PAID_DELIVERY_AMOUNT = 99;
 
+const CART_KEY = "godavari-basket-cart";
+const ADDRESS_KEY = "godavari-basket-checkout-address";
+const PAYMENT_ORDER_KEY = "godavari-basket-payment-order";
+const CHECKOUT_LINES_KEY =
+  "godavari-basket-checkout-lines";
+
 const emptyAddress: Address = {
   fullName: "",
   mobile: "",
@@ -87,104 +93,136 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
 
   /*
-   * IMPORTANT
-   *
-   * Load the cart first.
-   *
-   * We use cartLoaded so the save-to-localStorage effect
-   * cannot accidentally save [] before localStorage has been
-   * read.
+   * --------------------------------------------------
+   * INITIAL LOAD
+   * --------------------------------------------------
    */
+
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(
-        "godavari-basket-cart"
-      );
+    let mounted = true;
 
-      if (raw) {
-        const parsed = JSON.parse(raw);
+    async function initialise() {
+      /*
+       * Load cart.
+       */
+      try {
+        const raw =
+          localStorage.getItem(CART_KEY);
 
-        if (Array.isArray(parsed)) {
-          setCart(parsed);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+
+          if (Array.isArray(parsed)) {
+            setCart(parsed);
+          }
         }
+      } catch {
+        console.error(
+          "Unable to load saved cart."
+        );
+      } finally {
+        setCartLoaded(true);
       }
-    } catch {
-      console.error(
-        "Unable to load saved cart."
-      );
-    } finally {
-      setCartLoaded(true);
+
+      /*
+       * Load saved address.
+       */
+      try {
+        const raw =
+          sessionStorage.getItem(
+            ADDRESS_KEY
+          );
+
+        if (raw) {
+          const parsed = JSON.parse(raw);
+
+          if (
+            parsed &&
+            typeof parsed === "object"
+          ) {
+            setAddress({
+              ...emptyAddress,
+              ...parsed,
+            });
+          }
+        }
+      } catch {
+        console.error(
+          "Unable to load saved checkout address."
+        );
+      }
+
+      /*
+       * Get authenticated user.
+       */
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!mounted) return;
+
+      setUser(user || null);
+
+      if (user?.email) {
+        setAddress((current) => ({
+          ...current,
+          email:
+            current.email ||
+            user.email ||
+            "",
+        }));
+      }
+
+      const fullName =
+        user?.user_metadata?.full_name;
+
+      if (fullName) {
+        setAddress((current) => ({
+          ...current,
+          fullName:
+            current.fullName ||
+            fullName,
+        }));
+      }
+
+      setLoading(false);
     }
 
-    try {
-      const raw = sessionStorage.getItem(
-        "godavari-basket-checkout-address"
+    void initialise();
+
+    /*
+     * Listen for Supabase auth changes.
+     *
+     * This is particularly important immediately
+     * after login.
+     */
+    const {
+      data: { subscription },
+    } =
+      supabase.auth.onAuthStateChange(
+        (_event, session) => {
+          setUser(session?.user || null);
+        }
       );
 
-      if (raw) {
-        const parsed = JSON.parse(raw);
-
-        if (parsed && typeof parsed === "object") {
-          setAddress({
-            ...emptyAddress,
-            ...parsed,
-          });
-        }
-      }
-    } catch {
-      console.error(
-        "Unable to load saved checkout address."
-      );
-    }
-
-    void supabase.auth
-      .getUser()
-      .then(({ data }) => {
-        setUser(data.user || null);
-
-        if (data.user?.email) {
-          setAddress((current) => ({
-            ...current,
-            email:
-              current.email ||
-              data.user?.email ||
-              "",
-          }));
-        }
-
-        const fullName =
-          data.user?.user_metadata?.full_name;
-
-        if (fullName) {
-          setAddress((current) => ({
-            ...current,
-            fullName:
-              current.fullName ||
-              fullName,
-          }));
-        }
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   /*
-   * IMPORTANT
-   *
-   * Persist cart changes.
-   *
-   * The cart is NOT cleared here.
-   *
-   * cartLoaded prevents the initial empty state [] from
-   * overwriting the real cart in localStorage.
+   * --------------------------------------------------
+   * SAVE CART
+   * --------------------------------------------------
    */
+
   useEffect(() => {
     if (!cartLoaded) return;
 
     try {
       localStorage.setItem(
-        "godavari-basket-cart",
+        CART_KEY,
         JSON.stringify(cart)
       );
     } catch {
@@ -193,6 +231,12 @@ export default function CheckoutPage() {
       );
     }
   }, [cart, cartLoaded]);
+
+  /*
+   * --------------------------------------------------
+   * TOTALS
+   * --------------------------------------------------
+   */
 
   const subtotal = useMemo(() => {
     return cart.reduce(
@@ -204,13 +248,6 @@ export default function CheckoutPage() {
     );
   }, [cart]);
 
-  /*
-   * Same shipping calculation used by create-order
-   * and verify-order.
-   *
-   * Above ₹999 = FREE
-   * ₹999 or below = ₹99
-   */
   const shipping =
     subtotal > FREE_DELIVERY_THRESHOLD
       ? 0
@@ -228,6 +265,12 @@ export default function CheckoutPage() {
     0
   );
 
+  /*
+   * --------------------------------------------------
+   * ADDRESS
+   * --------------------------------------------------
+   */
+
   function updateAddress(
     key: keyof Address,
     value: string
@@ -241,13 +284,19 @@ export default function CheckoutPage() {
 
     try {
       sessionStorage.setItem(
-        "godavari-basket-checkout-address",
+        ADDRESS_KEY,
         JSON.stringify(next)
       );
     } catch {
       // Ignore storage errors.
     }
   }
+
+  /*
+   * --------------------------------------------------
+   * CART
+   * --------------------------------------------------
+   */
 
   function qty(
     id: number,
@@ -279,6 +328,12 @@ export default function CheckoutPage() {
       )
     );
   }
+
+  /*
+   * --------------------------------------------------
+   * CASHFREE SDK
+   * --------------------------------------------------
+   */
 
   async function loadCashfree() {
     if (window.Cashfree) {
@@ -341,6 +396,12 @@ export default function CheckoutPage() {
     );
   }
 
+  /*
+   * --------------------------------------------------
+   * START PAYMENT
+   * --------------------------------------------------
+   */
+
   async function submit(
     e: FormEvent
   ) {
@@ -348,11 +409,32 @@ export default function CheckoutPage() {
 
     setMessage("");
 
-    if (!user) {
-      window.location.href =
-        "/account?next=/checkout";
+    /*
+     * Get the CURRENT session immediately before
+     * starting payment.
+     *
+     * This prevents a stale user state from being used.
+     */
+    const {
+      data: { session },
+      error: sessionError,
+    } =
+      await supabase.auth.getSession();
+
+    if (
+      sessionError ||
+      !session?.user
+    ) {
+      setUser(null);
+
+      setMessage(
+        "Your login session is not available. Please sign in again before payment."
+      );
+
       return;
     }
+
+    setUser(session.user);
 
     if (!cartLoaded) {
       setMessage(
@@ -386,23 +468,30 @@ export default function CheckoutPage() {
     setBusy(true);
 
     try {
-      const {
-        data: { session },
-      } =
-        await supabase.auth.getSession();
+      /*
+       * Save checkout information BEFORE opening
+       * Cashfree.
+       */
+      sessionStorage.setItem(
+        CHECKOUT_LINES_KEY,
+        JSON.stringify(
+          cart.map((item) => ({
+            productId: String(
+              item.id
+            ),
+            quantity:
+              Number(item.quantity),
+          }))
+        )
+      );
 
-      if (!session) {
-        throw new Error(
-          "Your session has expired. Please login again."
-        );
-      }
+      sessionStorage.setItem(
+        ADDRESS_KEY,
+        JSON.stringify(address)
+      );
 
       /*
-       * IMPORTANT:
-       *
-       * We send the current cart to the server.
-       *
-       * We DO NOT remove the local cart here.
+       * Create server-side Cashfree order.
        */
       const response = await fetch(
         "/api/checkout/create-order",
@@ -411,8 +500,10 @@ export default function CheckoutPage() {
           headers: {
             "Content-Type":
               "application/json",
+
             Authorization: `Bearer ${session.access_token}`,
           },
+
           body: JSON.stringify({
             lines: cart.map((item) => ({
               productId: String(
@@ -421,6 +512,7 @@ export default function CheckoutPage() {
               quantity:
                 Number(item.quantity),
             })),
+
             address,
           }),
         }
@@ -437,36 +529,12 @@ export default function CheckoutPage() {
       }
 
       /*
-       * Save the exact cart used for this payment.
-       *
-       * This is NOT the same as clearing the cart.
+       * Save Cashfree order ID.
        */
-      try {
-        sessionStorage.setItem(
-          "godavari-basket-payment-order",
-          data.cashfree.orderId
-        );
-
-        sessionStorage.setItem(
-          "godavari-basket-checkout-lines",
-          JSON.stringify(
-            cart.map((item) => ({
-              productId: String(
-                item.id
-              ),
-              quantity:
-                Number(item.quantity),
-            }))
-          )
-        );
-
-        sessionStorage.setItem(
-          "godavari-basket-checkout-address",
-          JSON.stringify(address)
-        );
-      } catch {
-        // Payment can still continue.
-      }
+      sessionStorage.setItem(
+        PAYMENT_ORDER_KEY,
+        data.cashfree.orderId
+      );
 
       await loadCashfree();
 
@@ -486,6 +554,7 @@ export default function CheckoutPage() {
         paymentSessionId:
           data.cashfree
             .paymentSessionId,
+
         redirectTarget: "_self",
       });
     } catch (err) {
@@ -500,11 +569,11 @@ export default function CheckoutPage() {
   }
 
   /*
-   * PAYMENT RETURN / VERIFICATION
-   *
-   * The cart is cleared ONLY after /api/checkout/verify
-   * returns success.
+   * --------------------------------------------------
+   * VERIFY PAYMENT AFTER CASHFREE RETURN
+   * --------------------------------------------------
    */
+
   useEffect(() => {
     const orderId =
       new URLSearchParams(
@@ -517,28 +586,79 @@ export default function CheckoutPage() {
 
     let cancelled = false;
 
-    (async () => {
+    async function verifyPayment() {
       try {
+        setBusy(true);
+        setMessage("");
+
+        /*
+         * IMPORTANT:
+         *
+         * Ask Supabase to refresh/restore the current
+         * authentication session after returning from
+         * Cashfree.
+         */
         const {
-          data: { session },
+          data: {
+            session,
+          },
+          error: sessionError,
         } =
           await supabase.auth.getSession();
 
-        if (!session) {
-          setMessage(
-            "Please sign in again to verify your payment. Your cart has not been cleared."
-          );
-          return;
+        if (
+          sessionError ||
+          !session?.access_token ||
+          !session.user
+        ) {
+          /*
+           * Try getUser as a second attempt.
+           */
+          const {
+            data: {
+              user: refreshedUser,
+            },
+          } =
+            await supabase.auth.getUser();
+
+          if (!refreshedUser) {
+            throw new Error(
+              "Your login session could not be restored after payment. The payment may have succeeded, but the order could not be verified automatically. Please contact support with your Cashfree order ID: " +
+                orderId
+            );
+          }
         }
 
+        /*
+         * Get a fresh session again after getUser().
+         */
+        const {
+          data: {
+            session: freshSession,
+          },
+        } =
+          await supabase.auth.getSession();
+
+        if (
+          !freshSession?.access_token
+        ) {
+          throw new Error(
+            "Your login session could not be restored after payment. The payment may have succeeded, but the order could not be verified automatically. Please contact support with your Cashfree order ID: " +
+              orderId
+          );
+        }
+
+        /*
+         * Recover checkout data.
+         */
         const storedLines =
           sessionStorage.getItem(
-            "godavari-basket-checkout-lines"
+            CHECKOUT_LINES_KEY
           );
 
         const storedAddress =
           sessionStorage.getItem(
-            "godavari-basket-checkout-address"
+            ADDRESS_KEY
           );
 
         if (
@@ -546,32 +666,54 @@ export default function CheckoutPage() {
           !storedAddress
         ) {
           throw new Error(
-            "Your checkout information could not be recovered. Your cart has not been cleared."
+            "Your checkout information could not be recovered. Your cart has not been cleared. Cashfree order: " +
+              orderId
           );
         }
 
-        const parsedLines =
-          JSON.parse(storedLines);
+        let parsedLines;
+        let parsedAddress;
 
-        const parsedAddress =
-          JSON.parse(
-            storedAddress
+        try {
+          parsedLines =
+            JSON.parse(
+              storedLines
+            );
+
+          parsedAddress =
+            JSON.parse(
+              storedAddress
+            );
+        } catch {
+          throw new Error(
+            "Saved checkout information is invalid. Your cart has not been cleared. Cashfree order: " +
+              orderId
           );
+        }
 
+        /*
+         * Verify payment on server.
+         */
         const response =
           await fetch(
             "/api/checkout/verify",
             {
               method: "POST",
+
               headers: {
                 "Content-Type":
                   "application/json",
-                Authorization: `Bearer ${session.access_token}`,
+
+                Authorization: `Bearer ${freshSession.access_token}`,
               },
+
               body: JSON.stringify({
                 cashfreeOrderId:
                   orderId,
-                lines: parsedLines,
+
+                lines:
+                  parsedLines,
+
                 address:
                   parsedAddress,
               }),
@@ -584,7 +726,7 @@ export default function CheckoutPage() {
         if (!response.ok) {
           throw new Error(
             result.error ||
-              "Payment was not successful. Your cart is still saved. Please retry the payment."
+              "Payment could not be verified. Your cart has not been cleared."
           );
         }
 
@@ -593,18 +735,21 @@ export default function CheckoutPage() {
         }
 
         /*
-         * PAYMENT VERIFIED SUCCESSFULLY.
-         *
-         * ONLY NOW clear the cart.
+         * ------------------------------------------------
+         * PAYMENT + DATABASE ORDER SUCCESS
+         * ------------------------------------------------
          */
+
         const successData = {
           orderNumber:
             result.order
               .order_number,
+
           amount: Number(
             result.order
               .total_amount
           ),
+
           currency:
             result.order
               .currency || "INR",
@@ -618,50 +763,42 @@ export default function CheckoutPage() {
         );
 
         /*
-         * FINAL CART CLEAR.
-         *
-         * This is the ONLY place in the checkout
-         * page where the cart is cleared automatically.
+         * ONLY NOW clear cart.
          */
         localStorage.removeItem(
-          "godavari-basket-cart"
+          CART_KEY
         );
 
         setCart([]);
 
         sessionStorage.removeItem(
-          "godavari-basket-checkout-lines"
+          CHECKOUT_LINES_KEY
         );
 
         sessionStorage.removeItem(
-          "godavari-basket-payment-order"
+          PAYMENT_ORDER_KEY
         );
 
         sessionStorage.removeItem(
-          "godavari-basket-checkout-address"
+          ADDRESS_KEY
         );
 
         window.location.href =
           "/?order_success=1";
       } catch (err) {
         if (!cancelled) {
-          /*
-           * PAYMENT FAILED / VERIFICATION FAILED.
-           *
-           * DO NOT CLEAR CART.
-           */
           setMessage(
             err instanceof Error
               ? err.message
-              : "Payment failed. Your cart is still saved. Please retry the payment."
+              : "Payment verification failed. Your cart is still saved."
           );
 
           setBusy(false);
 
           /*
-           * Remove order_id from URL so refresh doesn't
-           * repeatedly verify the same payment.
+           * Do NOT clear cart.
            */
+
           window.history.replaceState(
             {},
             "",
@@ -669,12 +806,20 @@ export default function CheckoutPage() {
           );
         }
       }
-    })();
+    }
+
+    void verifyPayment();
 
     return () => {
       cancelled = true;
     };
   }, []);
+
+  /*
+   * --------------------------------------------------
+   * LOADING
+   * --------------------------------------------------
+   */
 
   if (loading) {
     return (
@@ -689,6 +834,12 @@ export default function CheckoutPage() {
       </main>
     );
   }
+
+  /*
+   * --------------------------------------------------
+   * UI
+   * --------------------------------------------------
+   */
 
   return (
     <main className="min-h-screen bg-cream">
@@ -743,8 +894,7 @@ export default function CheckoutPage() {
         {message && (
           <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
             <div className="font-semibold">
-              Payment could not be
-              completed
+              Payment verification issue
             </div>
 
             <p className="mt-1">
@@ -753,9 +903,8 @@ export default function CheckoutPage() {
 
             <p className="mt-2 text-xs text-red-700">
               Your cart and delivery
-              details are still saved.
-              Correct any issue and retry
-              the payment.
+              details have NOT been
+              cleared.
             </p>
           </div>
         )}
@@ -1046,20 +1195,13 @@ export default function CheckoutPage() {
               <>
                 <div className="mt-6 space-y-3 text-sm">
                   <div className="flex justify-between text-gray-500">
-                    <span>
-                      Items
-                    </span>
-
-                    <span>
-                      {count}
-                    </span>
+                    <span>Items</span>
+                    <span>{count}</span>
                   </div>
 
                   <div className="flex items-center justify-between text-gray-500">
                     <span className="flex items-center gap-2">
-                      <Truck
-                        size={15}
-                      />
+                      <Truck size={15} />
                       Delivery
                     </span>
 
@@ -1086,10 +1228,7 @@ export default function CheckoutPage() {
                       FREE_DELIVERY_THRESHOLD && (
                       <p className="rounded-xl bg-green-50 p-3 text-xs leading-5 text-green-800">
                         You unlocked
-                        FREE delivery
-                        because your
-                        basket is above
-                        ₹999.
+                        FREE delivery.
                       </p>
                     )}
 
@@ -1116,7 +1255,7 @@ export default function CheckoutPage() {
                   />
 
                   {busy
-                    ? "Opening Cashfree..."
+                    ? "Processing..."
                     : "Pay Securely with Cashfree"}
                 </button>
 
