@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -34,11 +33,8 @@ function scrollToSection(id: string) {
 }
 
 export default function Home() {
-  const [cart, setCart] =
-    useState<CartItem[]>([]);
-
-  const [cartOpen, setCartOpen] =
-    useState(false);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartOpen, setCartOpen] = useState(false);
 
   const [orderSuccess, setOrderSuccess] =
     useState<{
@@ -49,10 +45,9 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      const saved =
-        localStorage.getItem(
-          "godavari-basket-cart"
-        );
+      const saved = localStorage.getItem(
+        "godavari-basket-cart"
+      );
 
       if (saved) {
         setCart(JSON.parse(saved));
@@ -63,23 +58,20 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const params =
-      new URLSearchParams(
-        window.location.search
-      );
+    const params = new URLSearchParams(
+      window.location.search
+    );
 
     if (
-      params.get("order_success") !==
-      "1"
+      params.get("order_success") !== "1"
     ) {
       return;
     }
 
     try {
-      const raw =
-        sessionStorage.getItem(
-          "godavari-basket-order-success"
-        );
+      const raw = sessionStorage.getItem(
+        "godavari-basket-order-success"
+      );
 
       if (raw) {
         setOrderSuccess(
@@ -113,18 +105,7 @@ export default function Home() {
     }
   }, [cart]);
 
-  /*
-   * ADD TO BASKET
-   *
-   * Product is added to the cart,
-   * but the basket is NOT opened automatically.
-   *
-   * The user can open the basket manually
-   * using the cart button in the Header.
-   */
-  function addToCart(
-    product: Product
-  ) {
+  function addToCart(product: Product) {
     setCart((c) => {
       const found = c.find(
         (i) => i.id === product.id
@@ -148,6 +129,18 @@ export default function Home() {
             },
           ];
     });
+
+    /*
+     * FUTURE FEATURE:
+     * Automatically open the cart after adding a product.
+     *
+     * When we want this behavior in the future,
+     * simply uncomment the line below:
+     *
+     * setCartOpen(true);
+     */
+
+    // setCartOpen(true);
   }
 
   function changeQuantity(
@@ -280,8 +273,7 @@ export default function Home() {
               </h2>
 
               <p className="story-tagline">
-                From our roots to your
-                home
+                From our roots to your home
               </p>
 
               <div className="gold-divider left">
@@ -289,15 +281,13 @@ export default function Home() {
               </div>
 
               <p>
-                Every product has a
-                story. From fertile
-                farms and patient
-                artisans to the hands
-                that pack each order,
-                we preserve the
-                character of the region
-                while making discovery
-                feel effortless.
+                Every product has a story.
+                From fertile farms and
+                patient artisans to the
+                hands that pack each order,
+                we preserve the character
+                of the region while making
+                discovery feel effortless.
               </p>
 
               <button
@@ -309,10 +299,8 @@ export default function Home() {
                 }
                 className="outline-gold-button"
               >
-                KNOW OUR STORY{" "}
-                <ArrowRight
-                  size={14}
-                />
+                KNOW OUR STORY
+                <ArrowRight size={14} />
               </button>
             </div>
 
@@ -352,7 +340,9 @@ export default function Home() {
                       {t}
                     </strong>
 
-                    <p>{d}</p>
+                    <p>
+                      {d}
+                    </p>
                   </div>
                 )
               )}
@@ -404,8 +394,8 @@ export default function Home() {
                 Our journal is being
                 prepared. Check back for
                 authentic stories and
-                regional discoveries as
-                we publish them.
+                regional discoveries as we
+                publish them.
               </p>
             </div>
           </div>
@@ -480,7 +470,9 @@ export default function Home() {
         onClose={() =>
           setCartOpen(false)
         }
-        onChange={changeQuantity}
+        onChange={
+          changeQuantity
+        }
       />
 
       {orderSuccess && (
@@ -494,9 +486,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() =>
-                setOrderSuccess(
-                  null
-                )
+                setOrderSuccess(null)
               }
               aria-label="Close order confirmation"
               className="absolute right-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-gray-500 shadow-sm transition hover:bg-gray-100 hover:text-gray-900"
@@ -519,16 +509,15 @@ export default function Home() {
                 id="order-success-title"
                 className="serif mt-2 text-3xl"
               >
-                Thank you for your
-                order!
+                Thank you for your order!
               </h2>
 
               <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-white/75">
                 Your payment has been
-                received successfully. We
-                have saved your order and
-                will share the next updates
-                with you.
+                received successfully.
+                We have saved your order
+                and will share the next
+                updates with you.
               </p>
             </div>
 
@@ -593,8 +582,8 @@ export default function Home() {
 
               <p className="mt-4 text-center text-xs text-gray-400">
                 You can close this
-                message using the × button
-                above.
+                message using the ×
+                button above.
               </p>
             </div>
           </div>
