@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -83,11 +82,9 @@ function toggleWishlistItem(id: number): boolean {
 export default function ProductCard({
   product,
   onAdd,
-  onCartOpen,
 }: {
   product: Product;
   onAdd: (p: Product) => void;
-  onCartOpen: () => void;
 }) {
   const [details, setDetails] =
     useState(false);
@@ -99,8 +96,13 @@ export default function ProductCard({
     useState(1);
 
   /*
+   * --------------------------------------------------
+   * WISHLIST
+   * --------------------------------------------------
+   *
    * Load the saved wishlist when this card appears.
    */
+
   useEffect(() => {
     const updateLikedState = () => {
       const wishlist = getWishlist();
@@ -132,7 +134,7 @@ export default function ProductCard({
   ) {
     /*
      * Prevent the click from opening
-     * the product modal.
+     * the product details modal.
      */
     e.preventDefault();
     e.stopPropagation();
@@ -145,14 +147,31 @@ export default function ProductCard({
     setLiked(newLikedState);
   }
 
+  /*
+   * --------------------------------------------------
+   * PRODUCT DETAILS
+   * --------------------------------------------------
+   */
+
   function handleOpenDetails() {
     setDetails(true);
   }
 
   /*
-   * Add the selected quantity to the basket,
-   * then automatically open the existing cart.
+   * --------------------------------------------------
+   * ADD TO BASKET
+   * --------------------------------------------------
+   *
+   * IMPORTANT:
+   *
+   * This function ONLY adds the product to the cart.
+   *
+   * It DOES NOT open the basket/cart.
+   *
+   * The user must manually click the cart
+   * button in the Header to open the basket.
    */
+
   function add() {
     for (
       let i = 0;
@@ -162,32 +181,24 @@ export default function ProductCard({
       onAdd(product);
     }
 
+    /*
+     * Reset modal quantity after adding.
+     */
     setQuantity(1);
-    setDetails(false);
 
     /*
-     * Automatically open the cart after
-     * the product has been added.
+     * Close product details modal.
+     *
+     * The basket itself is NOT opened.
      */
-    onCartOpen();
+    setDetails(false);
   }
 
   /*
-   * Direct ADD TO BASKET button.
+   * --------------------------------------------------
+   * RENDER
+   * --------------------------------------------------
    */
-  function handleQuickAdd(
-    e: React.MouseEvent<HTMLButtonElement>
-  ) {
-    e.preventDefault();
-    e.stopPropagation();
-
-    onAdd(product);
-
-    /*
-     * Automatically open the cart.
-     */
-    onCartOpen();
-  }
 
   return (
     <>
@@ -196,7 +207,6 @@ export default function ProductCard({
         onClick={handleOpenDetails}
       >
         <div className="product-image-v2">
-
           {product.badge && (
             <span className="product-badge-v2">
               {product.badge}
@@ -206,6 +216,7 @@ export default function ProductCard({
           {/* =========================
               WISHLIST HEART
           ========================== */}
+
           <button
             type="button"
             className={`product-heart ${
@@ -241,7 +252,6 @@ export default function ProductCard({
         </div>
 
         <div className="product-body-v2">
-
           <span className="product-category-v2">
             {product.category}
           </span>
@@ -272,7 +282,6 @@ export default function ProductCard({
           </div>
 
           <div className="product-price-row">
-
             <strong>
               ₹
               {product.price.toLocaleString(
@@ -280,15 +289,37 @@ export default function ProductCard({
               )}
             </strong>
 
+            {/* =========================
+                ADD TO BASKET
+            ========================== */}
+
             <button
               type="button"
-              onClick={handleQuickAdd}
+              onClick={(e) => {
+                /*
+                 * VERY IMPORTANT:
+                 *
+                 * Stop this click from bubbling
+                 * to the product card.
+                 *
+                 * Otherwise the product details
+                 * modal would open.
+                 */
+                e.preventDefault();
+                e.stopPropagation();
+
+                /*
+                 * ONLY add the product.
+                 *
+                 * DO NOT open the basket.
+                 */
+                onAdd(product);
+              }}
             >
               <ShoppingBag size={14} />
 
               ADD TO BASKET
             </button>
-
           </div>
         </div>
       </article>
@@ -310,7 +341,6 @@ export default function ProductCard({
               e.stopPropagation()
             }
           >
-
             <button
               type="button"
               className="modal-close-v2"
@@ -330,7 +360,6 @@ export default function ProductCard({
             </div>
 
             <div className="modal-copy-v2">
-
               <span className="product-category-v2">
                 {product.category}
               </span>
@@ -372,14 +401,16 @@ export default function ProductCard({
                 </p>
               )}
 
-              <div className="quantity-v2">
+              {/* =========================
+                  QUANTITY
+              ========================== */}
 
+              <div className="quantity-v2">
                 <span>
                   Quantity
                 </span>
 
                 <div>
-
                   <button
                     type="button"
                     onClick={() =>
@@ -409,20 +440,36 @@ export default function ProductCard({
                   >
                     <Plus size={15} />
                   </button>
-
                 </div>
               </div>
+
+              {/* =========================
+                  MODAL ADD TO BASKET
+              ========================== */}
 
               <button
                 type="button"
                 className="gold-button modal-add-v2"
-                onClick={add}
+                onClick={(e) => {
+                  /*
+                   * Prevent any parent click
+                   * behavior.
+                   */
+                  e.preventDefault();
+                  e.stopPropagation();
+
+                  /*
+                   * Add selected quantity only.
+                   *
+                   * Basket will NOT open.
+                   */
+                  add();
+                }}
               >
                 <ShoppingBag size={16} />
 
                 ADD {quantity} TO BASKET
               </button>
-
             </div>
           </div>
         </div>
@@ -430,4 +477,3 @@ export default function ProductCard({
     </>
   );
 }
-
