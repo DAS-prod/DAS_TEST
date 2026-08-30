@@ -1,8 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-
-function scrollToStory() { document.getElementById("story")?.scrollIntoView({ behavior: "smooth", block: "start" }); }
+import StoryScrollButton from "/components/StoryScrollButton";
 
 export const metadata: Metadata = {
   title: "The Story Behind Ghanugu Nuvvula Nune | Godavari Basket",
@@ -109,13 +108,7 @@ export default function GhanuguNuvvulaNuneStoryPage() {
               people behind this traditional product.
             </p>
 
-            <button
-              type="button"
-              onClick={scrollToStory}
-              className="mt-8 inline-flex rounded-full border border-white/40 px-6 py-3 text-sm font-semibold transition hover:bg-white hover:text-[#20251f]"
-            >
-              Discover the story ↓
-            </button>
+         <StoryScrollButton />
           </div>
         </div>
       </section>
