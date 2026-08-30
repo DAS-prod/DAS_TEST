@@ -43,9 +43,7 @@ function calculateShipping(
     : PAID_DELIVERY_AMOUNT;
 }
 
-async function getProducts(): Promise<
-  Product[]
-> {
+async function getProducts(): Promise<Product[]> {
   const response = await fetch(
     `${API_URL}/api/products`,
     {
@@ -74,9 +72,19 @@ export async function POST(
   request: NextRequest
 ) {
   try {
-    const token = request.headers
-      .get("authorization")
-      ?.replace(
+    /*
+     * ---------------------------------------------
+     * 1. AUTHENTICATION
+     * ---------------------------------------------
+     */
+
+    const authorization =
+      request.headers.get(
+        "authorization"
+      );
+
+    const token =
+      authorization?.replace(
         /^Bearer\s+/i,
         ""
       );
@@ -96,11 +104,19 @@ export async function POST(
 
     const {
       data: { user },
-      error,
+      error: authError,
     } =
       await authClient.auth.getUser();
 
-    if (error || !user) {
+    if (
+      authError ||
+      !user
+    ) {
+      console.error(
+        "CREATE ORDER AUTH ERROR:",
+        authError
+      );
+
       return NextResponse.json(
         {
           error:
@@ -109,6 +125,12 @@ export async function POST(
         { status: 401 }
       );
     }
+
+    /*
+     * ---------------------------------------------
+     * 2. READ REQUEST
+     * ---------------------------------------------
+     */
 
     const body =
       await request.json();
@@ -150,6 +172,12 @@ export async function POST(
       );
     }
 
+    /*
+     * ---------------------------------------------
+     * 3. LOAD PRODUCTS
+     * ---------------------------------------------
+     */
+
     const products =
       await getProducts();
 
@@ -157,11 +185,19 @@ export async function POST(
       string,
       Product
     >(
-      products.map((product) => [
-        String(product.id),
-        product,
-      ])
+      products.map(
+        (product) => [
+          String(product.id),
+          product,
+        ]
+      )
     );
+
+    /*
+     * ---------------------------------------------
+     * 4. VALIDATE CART
+     * ---------------------------------------------
+     */
 
     const validated =
       lines.map((line) => {
@@ -177,19 +213,18 @@ export async function POST(
           !product.active ||
           Number(product.stock) <= 0 ||
           !Number.isInteger(
-            line.quantity
+            Number(line.quantity)
           ) ||
-          line.quantity < 1 ||
-          line.quantity > 50
+          Number(line.quantity) < 1 ||
+          Number(line.quantity) > 50
         ) {
           throw new Error(
             "One or more products are unavailable."
           );
         }
 
-        const price = Number(
-          product.price
-        );
+        const price =
+          Number(product.price);
 
         if (
           !Number.isFinite(price) ||
@@ -203,57 +238,64 @@ export async function POST(
         return {
           product,
           quantity:
-            line.quantity,
+            Number(line.quantity),
         };
       });
 
-    const subtotal = Number(
-      validated
-        .reduce(
-          (
-            sum,
-            {
-              product,
-              quantity,
-            }
-          ) =>
-            sum +
-            Number(
-              product.price
-            ) *
-              quantity,
-          0
-        )
-        .toFixed(2)
-    );
-
     /*
-     * IMPORTANT:
-     *
-     * This MUST match verify/route.ts.
+     * ---------------------------------------------
+     * 5. CALCULATE TOTAL
+     * ---------------------------------------------
      */
+
+    const subtotal =
+      Number(
+        validated
+          .reduce(
+            (
+              sum,
+              {
+                product,
+                quantity,
+              }
+            ) =>
+              sum +
+              Number(
+                product.price
+              ) *
+                quantity,
+            0
+          )
+          .toFixed(2)
+      );
+
     const shipping =
       calculateShipping(
         subtotal
       );
 
-    const total = Number(
-      (
-        subtotal +
-        shipping
-      ).toFixed(2)
-    );
+    const total =
+      Number(
+        (
+          subtotal +
+          shipping
+        ).toFixed(2)
+      );
 
     if (
-      !Number.isFinite(
-        total
-      ) ||
+      !Number.isFinite(total) ||
       total < 1
     ) {
       throw new Error(
         "Order total must be at least ₹1."
       );
     }
+
+    /*
+     * ---------------------------------------------
+     * 6. CREATE CASHFREE ORDER
+     * ---------------------------------------------
+     */
 
     const orderId =
       `gb_${Date.now()}_${crypto
@@ -266,22 +308,52 @@ export async function POST(
         .NEXT_PUBLIC_SITE_URL ||
       request.nextUrl.origin;
 
+    if (!siteUrl) {
+      throw new Error(
+        "NEXT_PUBLIC_SITE_URL is not configured."
+      );
+    }
+
     const cfOrder =
       await createCashfreeOrder({
         orderId,
+
         amount: total,
-        customerId: user.id,
+
+        customerId:
+          user.id,
+
         customerName:
           address.fullName,
+
         customerEmail:
           address.email,
+
         customerPhone:
           address.mobile,
+
         returnUrl:
           `${siteUrl}/checkout?order_id={order_id}`,
       });
 
+    if (
+      !cfOrder?.order_id ||
+      !cfOrder?.payment_session_id
+    ) {
+      throw new Error(
+        "Cashfree did not return a valid payment session."
+      );
+    }
+
+    /*
+     * ---------------------------------------------
+     * 7. RESPONSE
+     * ---------------------------------------------
+     */
+
     return NextResponse.json({
+      success: true,
+
       cashfree: {
         orderId:
           cfOrder.order_id,
