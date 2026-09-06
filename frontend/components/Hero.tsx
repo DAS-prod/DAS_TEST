@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const SLIDES = [
   {
@@ -28,45 +28,132 @@ const SLIDES = [
   },
 ];
 
+const SWIPE_THRESHOLD = 45;
+
 export default function Hero() {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 
+  const touchStartX = useRef<number | null>(null);
+  const touchCurrentX = useRef<number | null>(null);
+
   useEffect(() => {
     if (paused) return;
-    const timer = window.setInterval(
-      () => setIndex((value) => (value + 1) % SLIDES.length),
-      3500
-    );
+
+    const timer = window.setInterval(() => {
+      setIndex((value) => (value + 1) % SLIDES.length);
+    }, 3500);
+
     return () => window.clearInterval(timer);
   }, [paused]);
 
   function move(delta: number) {
-    setIndex((value) => (value + delta + SLIDES.length) % SLIDES.length);
+    setIndex(
+      (value) =>
+        (value + delta + SLIDES.length) %
+        SLIDES.length
+    );
+  }
+
+  function onTouchStart(
+    event: React.TouchEvent<HTMLElement>
+  ) {
+    touchStartX.current =
+      event.touches[0]?.clientX ?? null;
+
+    touchCurrentX.current =
+      touchStartX.current;
+
+    setPaused(true);
+  }
+
+  function onTouchMove(
+    event: React.TouchEvent<HTMLElement>
+  ) {
+    touchCurrentX.current =
+      event.touches[0]?.clientX ?? null;
+  }
+
+  function onTouchEnd() {
+    const start = touchStartX.current;
+    const end = touchCurrentX.current;
+
+    if (
+      start !== null &&
+      end !== null
+    ) {
+      const distance = end - start;
+
+      if (
+        Math.abs(distance) >=
+        SWIPE_THRESHOLD
+      ) {
+        move(distance < 0 ? 1 : -1);
+      }
+    }
+
+    touchStartX.current = null;
+    touchCurrentX.current = null;
+
+    setPaused(false);
   }
 
   return (
     <section
       className="approved-hero"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
+      onMouseEnter={() =>
+        setPaused(true)
+      }
+      onMouseLeave={() =>
+        setPaused(false)
+      }
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
       aria-label="Godavari Basket highlights"
     >
-      {SLIDES.map((slide, slideIndex) => (
-        <Link
-          key={slide.key}
-          href={slide.href}
-          className={`approved-hero-slide ${slideIndex === index ? "active" : ""}`}
-          aria-hidden={slideIndex !== index}
-          tabIndex={slideIndex === index ? 0 : -1}
-          aria-label={`${slide.title} — explore`}
-        >
-          <picture>
-            <source media="(max-width: 700px)" srcSet={slide.mobile} />
-            <img src={slide.desktop} alt={slide.title} fetchPriority={slideIndex === 0 ? "high" : "auto"} />
-          </picture>
-        </Link>
-      ))}
+      {SLIDES.map(
+        (slide, slideIndex) => (
+          <Link
+            key={slide.key}
+            href={slide.href}
+            className={`approved-hero-slide ${
+              slideIndex === index
+                ? "active"
+                : ""
+            }`}
+            aria-hidden={
+              slideIndex !== index
+            }
+            tabIndex={
+              slideIndex === index
+                ? 0
+                : -1
+            }
+            aria-label={`${slide.title} — explore`}
+            draggable={false}
+          >
+            <picture>
+              <source
+                media="(max-width: 700px)"
+                srcSet={slide.mobile}
+              />
+
+              <img
+                src={slide.desktop}
+                alt={slide.title}
+                fetchPriority={
+                  slideIndex === 0
+                    ? "high"
+                    : "auto"
+                }
+                draggable={false}
+              />
+            </picture>
+          </Link>
+        )
+      )}
 
       <button
         type="button"
@@ -86,16 +173,27 @@ export default function Hero() {
         <ArrowRight size={19} />
       </button>
 
-      <div className="approved-hero-dots" aria-label="Choose banner">
-        {SLIDES.map((slide, slideIndex) => (
-          <button
-            type="button"
-            key={slide.key}
-            className={slideIndex === index ? "active" : ""}
-            onClick={() => setIndex(slideIndex)}
-            aria-label={`Show ${slide.title}`}
-          />
-        ))}
+      <div
+        className="approved-hero-dots"
+        aria-label="Choose banner"
+      >
+        {SLIDES.map(
+          (slide, slideIndex) => (
+            <button
+              type="button"
+              key={slide.key}
+              className={
+                slideIndex === index
+                  ? "active"
+                  : ""
+              }
+              onClick={() =>
+                setIndex(slideIndex)
+              }
+              aria-label={`Show ${slide.title}`}
+            />
+          )
+        )}
       </div>
     </section>
   );
