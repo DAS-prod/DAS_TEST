@@ -1,145 +1,236 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServiceSupabase } from "../../../../lib/supabase-server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
-export const dynamic = "force-dynamic";
+import {
+  createServiceSupabase,
+} from "../../../../lib/supabase-server";
 
-function normalizeIndianPhone(value: unknown) {
-  const raw = String(value || "").trim();
+export const dynamic =
+  "force-dynamic";
 
-  if (!raw) return "";
+function normalizeIndianPhone(
+  value: unknown
+) {
+  const raw =
+    String(
+      value || ""
+    ).trim();
 
-  const compact = raw.replace(/[\s()-]/g, "");
+  const compact =
+    raw.replace(
+      /[\s()-]/g,
+      ""
+    );
 
-  if (/^\+\d{10,15}$/.test(compact)) {
+  if (
+    /^\+\d{10,15}$/.test(
+      compact
+    )
+  ) {
     return compact;
   }
 
-  const digits = compact.replace(/\D/g, "");
+  const digits =
+    compact.replace(
+      /\D/g,
+      ""
+    );
 
-  if (/^\d{10}$/.test(digits)) {
+  if (
+    /^\d{10}$/.test(
+      digits
+    )
+  ) {
     return `+91${digits}`;
   }
 
-  if (/^91\d{10}$/.test(digits)) {
+  if (
+    /^91\d{10}$/.test(
+      digits
+    )
+  ) {
     return `+${digits}`;
   }
 
   return "";
 }
 
-export async function POST(request: NextRequest) {
+function validEmail(
+  value: string
+) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    value
+  );
+}
+
+export async function POST(
+  request: NextRequest
+) {
   try {
-    const body = await request.json();
+    const body =
+      await request.json();
 
-    const fullName = String(body.fullName || "")
-      .trim()
-      .slice(0, 100);
+    const fullName =
+      String(
+        body.fullName ||
+          ""
+      )
+        .trim()
+        .slice(
+          0,
+          100
+        );
 
-    const email = String(body.email || "")
-      .trim()
-      .toLowerCase();
-
-    const rawPhone = String(body.phone || "").trim();
-
-    const phone = rawPhone
-      ? normalizeIndianPhone(rawPhone)
-      : "";
-
-    const password = String(body.password || "");
-
-    /*
-     * FULL NAME
-     */
-    if (fullName.length < 2) {
-      return NextResponse.json(
-        { error: "Enter your full name." },
-        { status: 400 }
+    const password =
+      String(
+        body.password ||
+          ""
       );
-    }
 
-    /*
-     * EMAIL
-     */
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json(
-        { error: "Enter a valid email address." },
-        { status: 400 }
+    const rawIdentifier =
+      String(
+        body.identifier ||
+          body.email ||
+          body.phone ||
+          ""
+      ).trim();
+
+    const isEmail =
+      rawIdentifier.includes(
+        "@"
       );
-    }
 
-    /*
-     * PHONE IS OPTIONAL.
-     *
-     * Only reject it if the customer entered something
-     * but the number is invalid.
-     */
-    if (rawPhone && !phone) {
+    const email =
+      isEmail
+        ? rawIdentifier.toLowerCase()
+        : "";
+
+    const phone =
+      isEmail
+        ? ""
+        : normalizeIndianPhone(
+            rawIdentifier
+          );
+
+    if (
+      fullName.length <
+      2
+    ) {
       return NextResponse.json(
         {
           error:
-            "Enter a valid mobile number or leave it empty.",
+            "Enter your full name.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    /*
-     * PASSWORD
-     */
-    if (password.length < 8) {
+    if (
+      !rawIdentifier
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Enter your email address or mobile number.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (
+      isEmail &&
+      !validEmail(email)
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Enter a valid email address.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (
+      !isEmail &&
+      !phone
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Enter a valid email address or mobile number.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (
+      password.length <
+      8
+    ) {
       return NextResponse.json(
         {
           error:
             "Password must contain at least 8 characters.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    const supabase = createServiceSupabase();
+    const supabase =
+      createServiceSupabase();
 
-    /*
-     * Build user details.
-     *
-     * We only include phone when the customer actually
-     * entered a valid phone number.
-     */
-    const userData: {
-      email: string;
-      password: string;
-      email_confirm: boolean;
-      user_metadata: {
-        full_name: string;
-      };
-      phone?: string;
-      phone_confirm?: boolean;
-    } = {
-      email,
+    const createPayload: Record<
+      string,
+      unknown
+    > = {
       password,
-      email_confirm: true,
+
       user_metadata: {
-        full_name: fullName,
+        full_name:
+          fullName,
       },
     };
 
-    /*
-     * Add phone only when provided.
-     */
-    if (phone) {
-      userData.phone = phone;
-      userData.phone_confirm = true;
+    if (email) {
+      createPayload.email =
+        email;
+
+      createPayload.email_confirm =
+        true;
+    } else {
+      createPayload.phone =
+        phone;
+
+      createPayload.phone_confirm =
+        true;
     }
 
-    /*
-     * CREATE USER
-     */
-    const { data, error } =
-      await supabase.auth.admin.createUser(userData);
+    const {
+      data,
+      error,
+    } =
+      await supabase.auth.admin.createUser(
+        createPayload as any
+      );
 
     if (error) {
-      const message = String(
-        error.message || "Unable to create account."
-      );
+      const message =
+        String(
+          error.message ||
+            "Unable to create account."
+        );
 
       const duplicate =
         /already|registered|exists|duplicate/i.test(
@@ -148,38 +239,54 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(
         {
-          error: duplicate
-            ? "An account already exists with this email or mobile number."
-            : message,
+          error:
+            duplicate
+              ? "An account already exists with this email or mobile number."
+              : message,
         },
         {
-          status: duplicate ? 409 : 400,
+          status:
+            duplicate
+              ? 409
+              : 400,
         }
       );
     }
 
     if (!data.user) {
       return NextResponse.json(
-        { error: "Unable to create account." },
-        { status: 400 }
+        {
+          error:
+            "Unable to create account.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      userId: data.user.id,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+      }
+    );
   } catch (error) {
-    console.error("REGISTER ERROR:", error);
+    console.error(
+      "REGISTER ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
         error:
-          error instanceof Error
+          error instanceof
+          Error
             ? error.message
             : "Unable to create account.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
