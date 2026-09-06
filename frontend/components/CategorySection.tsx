@@ -13,43 +13,130 @@ import {
 } from "lucide-react";
 
 export const MAIN_CATEGORIES = [
-  { name: "Seasonal", key: "Seasonal", icon: Sparkles },
-  { name: "Sweets", key: "Sweets", icon: Cookie },
-  { name: "Snacks", key: "Snacks", icon: Wheat },
-  { name: "Pickles", key: "Pickles", icon: CircleDot },
-  { name: "Podis", key: "Podis", icon: Sparkles },
-  { name: "Papads", key: "Papads", icon: Package },
-  { name: "Millets", key: "Millets", icon: Leaf },
-  { name: "Ghees & Oils", key: "Ghees & Oils", icon: Droplets },
-  { name: "Essentials", key: "Essentials", icon: Nut },
-  { name: "Art & Traditionals", key: "Art & Traditionals", icon: Package },
+  {
+    name: "90s & Seasonal",
+    key: "90s & Seasonal",
+    icon: Sparkles,
+  },
+  {
+    name: "Sweets",
+    key: "Sweets",
+    icon: Cookie,
+  },
+  {
+    name: "Snacks",
+    key: "Snacks",
+    icon: Wheat,
+  },
+  {
+    name: "Pickles",
+    key: "Pickles",
+    icon: CircleDot,
+  },
+  {
+    name: "Podis",
+    key: "Podis",
+    icon: Drumstick,
+  },
+  {
+    name: "Papads",
+    key: "Papads",
+    icon: Package,
+  },
+  {
+    name: "Millets",
+    key: "Millets",
+    icon: Leaf,
+  },
+  {
+    name: "Ghees & Oils",
+    key: "Ghees & Oils",
+    icon: Droplets,
+  },
+  {
+    name: "Essentials",
+    key: "Essentials",
+    icon: Nut,
+  },
 ];
 
-function filterCategory(key: string) {
-  window.dispatchEvent(new CustomEvent("category-filter", { detail: key }));
-  document.getElementById("shop")?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
 export default function CategorySection() {
+  function selectCategory(
+    category: string
+  ) {
+    window.dispatchEvent(
+      new CustomEvent(
+        "category-filter",
+        {
+          detail: category,
+        }
+      )
+    );
+
+    setTimeout(() => {
+      document
+        .getElementById("shop")
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+    }, 20);
+  }
+
   return (
-    <section id="collections" className="category-section">
+    <section
+      id="collections"
+      className="category-section"
+    >
       <div className="container-wide">
-        <div className="section-heading centered">
-          <p className="eyebrow">Discover the region</p>
-          <h2>EXPLORE THE GODAVARI</h2>
-          <div className="mini-divider"><span>✦</span></div>
+        <div className="section-heading">
+          <p className="eyebrow">
+            EXPLORE OUR COLLECTION
+          </p>
+
+          <h2>
+            AUTHENTIC GODAVARI
+            GOODNESS
+          </h2>
         </div>
 
-        <div className="category-row category-row-new">
-          {MAIN_CATEGORIES.map(({ name, key, icon: Icon }) => (
-            <div key={name} className="category-item category-item-new" role="button" tabIndex={0} onClick={() => filterCategory(key)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") filterCategory(key); }}>
-              <span className="category-image category-icon-only">
-                <span className="category-icon-glow"><Icon size={31} strokeWidth={1.35} /></span>
-                <span className="category-inner-ring" />
-              </span>
-              <strong>{name}</strong>
-            </div>
-          ))}
+        <div className="category-grid">
+          {MAIN_CATEGORIES.map(
+            (category) => {
+              const Icon =
+                category.icon;
+
+              return (
+                <button
+                  type="button"
+                  key={
+                    category.key
+                  }
+                  className="category-card"
+                  onClick={() =>
+                    selectCategory(
+                      category.key
+                    )
+                  }
+                >
+                  <span className="category-icon">
+                    <Icon
+                      size={23}
+                      strokeWidth={
+                        1.5
+                      }
+                    />
+                  </span>
+
+                  <span>
+                    {
+                      category.name
+                    }
+                  </span>
+                </button>
+              );
+            }
+          )}
         </div>
       </div>
     </section>
