@@ -1,2 +1,9 @@
-import PremiumCollectionPage from "../../components/PremiumCollectionPage";
-export default function Page(){return <PremiumCollectionPage type="seasonal"/>}
+import {
+  redirect,
+} from "next/navigation";
+
+export default function OldSeasonalPage() {
+  redirect(
+    "/90s-seasonal"
+  );
+}
