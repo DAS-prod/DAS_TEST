@@ -1,15 +1,14 @@
 "use client";
 
 import {
+  Candy,
   Cookie,
+  Drumstick,
   Droplets,
   Leaf,
   Package,
   Sparkles,
   Wheat,
-  Drumstick,
-  Nut,
-  CircleDot,
 } from "lucide-react";
 
 export const MAIN_CATEGORIES = [
@@ -21,22 +20,22 @@ export const MAIN_CATEGORIES = [
   {
     name: "Sweets",
     key: "Sweets",
-    icon: Cookie,
+    icon: Candy,
   },
   {
     name: "Snacks",
     key: "Snacks",
-    icon: Wheat,
+    icon: Cookie,
   },
   {
     name: "Pickles",
     key: "Pickles",
-    icon: CircleDot,
+    icon: Drumstick,
   },
   {
     name: "Podis",
     key: "Podis",
-    icon: Drumstick,
+    icon: Wheat,
   },
   {
     name: "Papads",
@@ -56,21 +55,16 @@ export const MAIN_CATEGORIES = [
   {
     name: "Essentials",
     key: "Essentials",
-    icon: Nut,
+    icon: Wheat,
   },
 ];
 
 export default function CategorySection() {
-  function selectCategory(
-    category: string
-  ) {
+  function selectCategory(category: string) {
     window.dispatchEvent(
-      new CustomEvent(
-        "category-filter",
-        {
-          detail: category,
-        }
-      )
+      new CustomEvent("category-filter", {
+        detail: category,
+      })
     );
 
     setTimeout(() => {
@@ -95,48 +89,36 @@ export default function CategorySection() {
           </p>
 
           <h2>
-            AUTHENTIC GODAVARI
-            GOODNESS
+            AUTHENTIC GODAVARI GOODNESS
           </h2>
         </div>
 
         <div className="category-grid">
-          {MAIN_CATEGORIES.map(
-            (category) => {
-              const Icon =
-                category.icon;
+          {MAIN_CATEGORIES.map((category) => {
+            const Icon = category.icon;
 
-              return (
-                <button
-                  type="button"
-                  key={
-                    category.key
-                  }
-                  className="category-card"
-                  onClick={() =>
-                    selectCategory(
-                      category.key
-                    )
-                  }
-                >
-                  <span className="category-icon">
-                    <Icon
-                      size={23}
-                      strokeWidth={
-                        1.5
-                      }
-                    />
-                  </span>
+            return (
+              <button
+                type="button"
+                key={category.key}
+                className="category-card"
+                onClick={() =>
+                  selectCategory(category.key)
+                }
+              >
+                <span className="category-icon">
+                  <Icon
+                    size={23}
+                    strokeWidth={1.5}
+                  />
+                </span>
 
-                  <span>
-                    {
-                      category.name
-                    }
-                  </span>
-                </button>
-              );
-            }
-          )}
+                <span>
+                  {category.name}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </section>
