@@ -3,8 +3,7 @@ const API_VERSION =
   "2025-01-01";
 
 const ENV =
-  process.env.CASHFREE_ENV ===
-  "production"
+  process.env.CASHFREE_ENV === "production"
     ? "production"
     : "sandbox";
 
@@ -20,10 +19,7 @@ function credentials() {
   const clientSecret =
     process.env.CASHFREE_CLIENT_SECRET;
 
-  if (
-    !clientId ||
-    !clientSecret
-  ) {
+  if (!clientId || !clientSecret) {
     throw new Error(
       "Cashfree credentials are not configured."
     );
@@ -33,6 +29,31 @@ function credentials() {
     clientId,
     clientSecret,
   };
+}
+
+function normalizeCashfreePhone(
+  value: string
+) {
+  const digits = String(
+    value || ""
+  ).replace(/\D/g, "");
+
+  // +91 9876543210
+  if (
+    digits.length === 12 &&
+    digits.startsWith("91")
+  ) {
+    return digits.slice(2);
+  }
+
+  // 9876543210
+  if (digits.length === 10) {
+    return digits;
+  }
+
+  throw new Error(
+    "Enter a valid 10-digit mobile number."
+  );
 }
 
 async function cashfreeFetch(
@@ -69,14 +90,16 @@ async function cashfreeFetch(
           ...(init.headers || {}),
         },
 
-        cache: "no-store",
+        cache:
+          "no-store",
       }
     );
 
   const text =
     await response.text();
 
-  let data: any = null;
+  let data: any =
+    null;
 
   try {
     data = text
@@ -84,14 +107,29 @@ async function cashfreeFetch(
       : null;
   } catch {
     data = {
-      message: text,
+      message:
+        text,
     };
   }
 
   if (!response.ok) {
+    console.error(
+      "CASHFREE API ERROR:",
+      {
+        status:
+          response.status,
+
+        path,
+
+        response:
+          data,
+      }
+    );
+
     throw new Error(
       data?.message ||
         data?.message_description ||
+        data?.type ||
         `Cashfree API failed (${response.status}).`
     );
   }
@@ -114,45 +152,54 @@ export async function createCashfreeOrder(
     returnUrl: string;
   }
 ) {
+  const phone =
+    normalizeCashfreePhone(
+      input.customerPhone
+    );
+
   return cashfreeFetch(
     "/orders",
     {
-      method: "POST",
+      method:
+        "POST",
 
-      body: JSON.stringify({
-        order_id:
-          input.orderId,
+      body:
+        JSON.stringify({
+          order_id:
+            input.orderId,
 
-        order_amount:
-          Number(
-            input.amount.toFixed(2)
-          ),
+          order_amount:
+            Number(
+              input.amount.toFixed(
+                2
+              )
+            ),
 
-        order_currency:
-          "INR",
+          order_currency:
+            "INR",
 
-        customer_details: {
-          customer_id:
-            input.customerId,
+          customer_details: {
+            customer_id:
+              input.customerId,
 
-          customer_name:
-            input.customerName,
+            customer_name:
+              input.customerName,
 
-          customer_email:
-            input.customerEmail,
+            customer_email:
+              input.customerEmail,
 
-          customer_phone:
-            input.customerPhone,
-        },
+            customer_phone:
+              phone,
+          },
 
-        order_meta: {
-          return_url:
-            input.returnUrl,
-        },
+          order_meta: {
+            return_url:
+              input.returnUrl,
+          },
 
-        order_note:
-          "Godavari Basket Order",
-      }),
+          order_note:
+            "Godavari Basket Order",
+        }),
     }
   );
 }
