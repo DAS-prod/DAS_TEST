@@ -13,6 +13,7 @@ import {
 import { API_URL } from "../../../../lib/products";
 import { validateCoupon } from "../../../../lib/promotions";
 import { normalizeReferralCode } from "../../../../lib/referrals";
+import { notifyAdminOfPaidOrder } from "../../../../lib/admin-push";
 
 export const dynamic = "force-dynamic";
 
@@ -313,6 +314,11 @@ export async function POST(request: NextRequest) {
       }
     );
 
+    const itemCount = validated.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
+
     /*
      * ==================================================
      * 6. SERVER-SIDE TOTAL
@@ -590,6 +596,14 @@ export async function POST(request: NextRequest) {
          * creating another order.
          */
 
+        await notifyAdminOfPaidOrder({
+          orderId: existingOrder.id,
+          orderNumber: existingOrder.order_number,
+          customerName: address.fullName,
+          totalAmount: Number(existingOrder.total_amount),
+          itemCount,
+        });
+
         return NextResponse.json({
           success: true,
 
@@ -793,6 +807,14 @@ export async function POST(request: NextRequest) {
             winningOrder.user_id ===
               user.id
           ) {
+            await notifyAdminOfPaidOrder({
+              orderId: winningOrder.id,
+              orderNumber: winningOrder.order_number,
+              customerName: address.fullName,
+              totalAmount: Number(winningOrder.total_amount),
+              itemCount,
+            });
+
             return NextResponse.json({
               success: true,
 
@@ -1015,6 +1037,14 @@ export async function POST(request: NextRequest) {
         )
       );
     }
+
+    await notifyAdminOfPaidOrder({
+      orderId: order.id,
+      orderNumber: order.order_number,
+      customerName: address.fullName,
+      totalAmount: Number(order.total_amount),
+      itemCount,
+    });
 
     /*
      * ==================================================
