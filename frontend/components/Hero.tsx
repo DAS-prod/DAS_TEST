@@ -1,199 +1,195 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
 
-const SLIDES = [
+type HeroSlide = {
+  key: string;
+  title: string;
+  subtitle?: string;
+  href: string;
+  desktop: string;
+  mobile: string;
+  buttonText?: string;
+};
+
+const SLIDES: HeroSlide[] = [
   {
-    key: "traditional",
-    title: "Traditional Goodness",
-    href: "/#shop",
-    desktop: "/images/hero-approved/traditional-goodness.jpg",
-    mobile: "/images/hero-approved/traditional-goodness-mobile.jpg",
-  },
-  {
-    key: "art",
-    title: "Art & Craft",
-    href: "/art-and-craft",
-    desktop: "/images/hero-approved/art-craft.jpg",
-    mobile: "/images/hero-approved/art-craft-mobile.jpg",
+    key: "combos",
+    title: "Godavari Combos",
+    subtitle: "Handpicked flavours from the Godavari",
+    href: "/combos",
+    desktop: "/images/hero/combos.jpg",
+    mobile: "/images/hero/combos-mobile.jpg",
+    buttonText: "Explore Combos",
   },
   {
     key: "gifting",
-    title: "Gifting",
+    title: "Gifting & Hampers",
+    subtitle: "Thoughtful gifting with a touch of tradition",
     href: "/gifting",
-    desktop: "/images/hero-approved/gifting.jpg",
-    mobile: "/images/hero-approved/gifting-mobile.jpg",
+    desktop: "/images/hero/gifting.jpg",
+    mobile: "/images/hero/gifting-mobile.jpg",
+    buttonText: "Explore Gifting",
+  },
+  {
+    key: "coir-toys",
+    title: "Coir Toys",
+    subtitle: "Traditional handmade creations from our roots",
+    href: "/art-and-craft",
+    desktop: "/images/hero/coir-toys.jpg",
+    mobile: "/images/hero/coir-toys-mobile.jpg",
+    buttonText: "Explore Collection",
+  },
+  {
+    key: "90s-combo",
+    title: "90's Memories",
+    subtitle: "Bring back the flavours and memories we grew up with",
+    href: "/90s-combo",
+    desktop: "/images/hero/90s-combo.jpg",
+    mobile: "/images/hero/90s-combo-mobile.jpg",
+    buttonText: "Relive the 90's",
+  },
+  {
+    key: "traditional",
+    title: "Traditional Godavari Foods",
+    subtitle: "Authentic flavours from our roots to your home",
+    href: "/products",
+    desktop: "/images/hero/traditional.jpg",
+    mobile: "/images/hero/traditional-mobile.jpg",
+    buttonText: "Shop Now",
   },
 ];
 
-const SWIPE_THRESHOLD = 45;
-
 export default function Hero() {
-  const [index, setIndex] = useState(0);
+  const [activeSlide, setActiveSlide] = useState(0);
   const [paused, setPaused] = useState(false);
 
-  const touchStartX = useRef<number | null>(null);
-  const touchCurrentX = useRef<number | null>(null);
+  const totalSlides = SLIDES.length;
 
   useEffect(() => {
-    if (paused) return;
+    if (paused || totalSlides <= 1) return;
 
-    const timer = window.setInterval(() => {
-      setIndex((value) => (value + 1) % SLIDES.length);
-    }, 3500);
+    const interval = window.setInterval(() => {
+      setActiveSlide((current) => (current + 1) % totalSlides);
+    }, 3000);
 
-    return () => window.clearInterval(timer);
-  }, [paused]);
+    return () => window.clearInterval(interval);
+  }, [paused, totalSlides]);
 
-  function move(delta: number) {
-    setIndex(
-      (value) =>
-        (value + delta + SLIDES.length) %
-        SLIDES.length
+  function nextSlide() {
+    setActiveSlide((current) => (current + 1) % totalSlides);
+  }
+
+  function previousSlide() {
+    setActiveSlide(
+      (current) => (current - 1 + totalSlides) % totalSlides
     );
-  }
-
-  function onTouchStart(
-    event: React.TouchEvent<HTMLElement>
-  ) {
-    touchStartX.current =
-      event.touches[0]?.clientX ?? null;
-
-    touchCurrentX.current =
-      touchStartX.current;
-
-    setPaused(true);
-  }
-
-  function onTouchMove(
-    event: React.TouchEvent<HTMLElement>
-  ) {
-    touchCurrentX.current =
-      event.touches[0]?.clientX ?? null;
-  }
-
-  function onTouchEnd() {
-    const start = touchStartX.current;
-    const end = touchCurrentX.current;
-
-    if (
-      start !== null &&
-      end !== null
-    ) {
-      const distance = end - start;
-
-      if (
-        Math.abs(distance) >=
-        SWIPE_THRESHOLD
-      ) {
-        move(distance < 0 ? 1 : -1);
-      }
-    }
-
-    touchStartX.current = null;
-    touchCurrentX.current = null;
-
-    setPaused(false);
   }
 
   return (
     <section
-      className="approved-hero"
-      onMouseEnter={() =>
-        setPaused(true)
-      }
-      onMouseLeave={() =>
-        setPaused(false)
-      }
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-      onTouchCancel={onTouchEnd}
-      aria-label="Godavari Basket highlights"
+      className="relative w-full overflow-hidden bg-[#f6f1e7]"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
     >
-      {SLIDES.map(
-        (slide, slideIndex) => (
-          <Link
-            key={slide.key}
-            href={slide.href}
-            className={`approved-hero-slide ${
-              slideIndex === index
-                ? "active"
-                : ""
-            }`}
-            aria-hidden={
-              slideIndex !== index
-            }
-            tabIndex={
-              slideIndex === index
-                ? 0
-                : -1
-            }
-            aria-label={`${slide.title} — explore`}
-            draggable={false}
-          >
-            <picture>
-              <source
-                media="(max-width: 700px)"
-                srcSet={slide.mobile}
-              />
+      <div className="relative h-[420px] w-full sm:h-[500px] md:h-[560px] lg:h-[620px]">
+        {SLIDES.map((slide, index) => {
+          const isActive = index === activeSlide;
 
-              <img
-                src={slide.desktop}
-                alt={slide.title}
-                fetchPriority={
-                  slideIndex === 0
-                    ? "high"
-                    : "auto"
-                }
-                draggable={false}
-              />
-            </picture>
-          </Link>
-        )
-      )}
+          return (
+            <div
+              key={slide.key}
+              className={`absolute inset-0 transition-all duration-700 ease-in-out ${
+                isActive
+                  ? "z-10 opacity-100"
+                  : "pointer-events-none z-0 opacity-0"
+              }`}
+              aria-hidden={!isActive}
+            >
+              <picture>
+                <source
+                  media="(max-width: 700px)"
+                  srcSet={slide.mobile}
+                />
 
-      <button
-        type="button"
-        className="approved-hero-arrow left"
-        onClick={() => move(-1)}
-        aria-label="Previous banner"
-      >
-        <ArrowLeft size={19} />
-      </button>
+                <img
+                  src={slide.desktop}
+                  alt={slide.title}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  loading={index === 0 ? "eager" : "lazy"}
+                />
+              </picture>
 
-      <button
-        type="button"
-        className="approved-hero-arrow right"
-        onClick={() => move(1)}
-        aria-label="Next banner"
-      >
-        <ArrowRight size={19} />
-      </button>
+              <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/25 to-transparent md:from-black/50 md:via-black/20" />
 
-      <div
-        className="approved-hero-dots"
-        aria-label="Choose banner"
-      >
-        {SLIDES.map(
-          (slide, slideIndex) => (
+              <div className="relative z-20 mx-auto flex h-full max-w-7xl items-center px-5 sm:px-8 lg:px-12">
+                <div className="max-w-xl text-white">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.28em] text-[#e2c27d] sm:text-sm">
+                    Godavari Basket
+                  </p>
+
+                  <h1 className="text-4xl font-semibold leading-[1.08] sm:text-5xl md:text-6xl">
+                    {slide.title}
+                  </h1>
+
+                  {slide.subtitle && (
+                    <p className="mt-4 max-w-lg text-sm leading-6 text-white/90 sm:text-base md:text-lg">
+                      {slide.subtitle}
+                    </p>
+                  )}
+
+                  <Link
+                    href={slide.href}
+                    className="mt-7 inline-flex items-center rounded-full border border-[#d5b56f] bg-[#153d2b] px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-[#1d5139] sm:px-7"
+                  >
+                    {slide.buttonText || "Explore"}
+                    <span className="ml-2">→</span>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {totalSlides > 1 && (
+          <>
             <button
               type="button"
-              key={slide.key}
-              className={
-                slideIndex === index
-                  ? "active"
-                  : ""
-              }
-              onClick={() =>
-                setIndex(slideIndex)
-              }
-              aria-label={`Show ${slide.title}`}
-            />
-          )
+              onClick={previousSlide}
+              aria-label="Previous banner"
+              className="absolute left-3 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/25 text-white backdrop-blur-sm transition hover:bg-black/45 sm:left-5 sm:h-11 sm:w-11"
+            >
+              <ChevronLeft size={22} />
+            </button>
+
+            <button
+              type="button"
+              onClick={nextSlide}
+              aria-label="Next banner"
+              className="absolute right-3 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/25 text-white backdrop-blur-sm transition hover:bg-black/45 sm:right-5 sm:h-11 sm:w-11"
+            >
+              <ChevronRight size={22} />
+            </button>
+          </>
         )}
+
+        <div className="absolute bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/20 px-3 py-2 backdrop-blur-sm">
+          {SLIDES.map((slide, index) => (
+            <button
+              key={slide.key}
+              type="button"
+              aria-label={`Open banner ${index + 1}`}
+              onClick={() => setActiveSlide(index)}
+              className={`h-2.5 rounded-full transition-all duration-300 ${
+                activeSlide === index
+                  ? "w-7 bg-white"
+                  : "w-2.5 bg-white/55 hover:bg-white/80"
+              }`}
+            />
+          ))}
+        </div>
       </div>
     </section>
   );
