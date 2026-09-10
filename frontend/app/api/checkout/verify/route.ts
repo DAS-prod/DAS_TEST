@@ -40,8 +40,13 @@ type Product = {
   active: boolean;
   stock: number | string;
   price: number | string;
+  "250g"?: number | string;
+  "500g"?: number | string;
+  "1kg"?: number | string;
   name?: string;
+  handle?: string;
   image?: string;
+  sku?: string;
   size?: string;
   variants?: Array<{ label: string; price: number | string }>;
 };
@@ -57,6 +62,24 @@ function calculateShipping(subtotal: number) {
 
 function resolveProductPrice(product: Product, requestedSize?: string) {
   const size = String(requestedSize || "").trim().toLowerCase();
+
+  // Primary: original Google Sheet columns used by the working checkout.
+  if (size === "250g") {
+    const value = Number(product["250g"]);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+
+  if (size === "500g") {
+    const value = Number(product["500g"]);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+
+  if (size === "1kg") {
+    const value = Number(product["1kg"]);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+
+  // Compatibility: keep support for the newer API variant format too.
   if (size && Array.isArray(product.variants)) {
     const variant = product.variants.find(
       (item) => String(item.label || "").trim().toLowerCase() === size
@@ -66,12 +89,21 @@ function resolveProductPrice(product: Product, requestedSize?: string) {
       if (Number.isFinite(variantPrice) && variantPrice > 0) return variantPrice;
     }
   }
+
+  // Fixed-size/base-price products (gifting, combos, etc.).
   const baseSize = String(product.size || "").trim().toLowerCase();
-  if (!size || !baseSize || size === baseSize) {
-    const basePrice = Number(product.price);
-    if (Number.isFinite(basePrice) && basePrice > 0) return basePrice;
+  const basePrice = Number(product.price);
+  if (
+    Number.isFinite(basePrice) &&
+    basePrice > 0 &&
+    (!size || !baseSize || size === baseSize)
+  ) {
+    return basePrice;
   }
-  throw new Error("The selected product size is no longer available.");
+
+  throw new Error(
+    `Invalid or unavailable price for product ${product.id}${size ? ` (${size})` : ""}.`
+  );
 }
 
 async function getProducts(): Promise<Product[]> {
