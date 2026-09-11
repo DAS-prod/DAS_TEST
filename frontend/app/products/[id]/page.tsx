@@ -11,6 +11,7 @@ import {
   Zap,
 } from "lucide-react";
 import { getProduct, Product } from "../../../lib/products";
+import Toast from "../../../components/Toast";
 
 export default function ProductPage({
   params,
@@ -20,6 +21,7 @@ export default function ProductPage({
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const [toastMessage, setToastMessage] = useState("");
 
   useEffect(() => {
     async function loadProduct() {
@@ -74,7 +76,9 @@ export default function ProductPage({
       JSON.stringify(updatedCart)
     );
 
-    alert("Product added to cart!");
+    setToastMessage(
+      `${product.name} added to basket`
+    );
   }
 
   function buyNow() {
@@ -116,7 +120,16 @@ export default function ProductPage({
   }
 
   return (
-    <main className="min-h-screen bg-white">
+    <>
+      <Toast
+        message={toastMessage}
+        type="success"
+        onClose={() =>
+          setToastMessage("")
+        }
+      />
+
+      <main className="min-h-screen bg-white">
 
       {/* BACK */}
 
