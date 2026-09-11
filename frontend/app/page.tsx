@@ -21,6 +21,7 @@ import CartDrawer, {
 } from "../components/CartDrawer";
 import Footer from "../components/Footer";
 import type { Product } from "../lib/products";
+import Toast from "../components/Toast";
 
 function scrollToSection(id: string) {
   document
@@ -34,6 +35,7 @@ function scrollToSection(id: string) {
 export default function Home() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
   const [orderSuccess, setOrderSuccess] =
     useState<{
@@ -140,6 +142,10 @@ export default function Home() {
      */
 
     // setCartOpen(true);
+
+    setToastMessage(
+      `${product.name} added to basket`
+    );
   }
 
   function changeQuantity(
@@ -194,6 +200,14 @@ export default function Home() {
 
   return (
     <>
+      <Toast
+        message={toastMessage}
+        type="success"
+        onClose={() =>
+          setToastMessage("")
+        }
+      />
+
       <IntroAnimation />
 
       <Header
