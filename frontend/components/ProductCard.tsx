@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import type { MouseEvent } from "react";
 import type { Product } from "../lib/products";
+import Toast from "./Toast";
 
 const WISHLIST_KEY = "godavari-basket-wishlist";
 
@@ -168,6 +169,9 @@ export default function ProductCard({
   const [quantity, setQuantity] =
     useState(1);
 
+  const [toastMessage, setToastMessage] =
+    useState("");
+
   useEffect(() => {
     const firstSize =
       getAvailableSizes(product)[0] ||
@@ -228,6 +232,12 @@ export default function ProductCard({
       );
 
     setLiked(newLikedState);
+
+    setToastMessage(
+      newLikedState
+        ? "Added to wishlist"
+        : "Removed from wishlist"
+    );
   }
 
   function handleSizeClick(
@@ -262,6 +272,14 @@ export default function ProductCard({
 
   return (
     <>
+      <Toast
+        message={toastMessage}
+        type="success"
+        onClose={() =>
+          setToastMessage("")
+        }
+      />
+
       {/* ==================================================
           PRODUCT CARD
       ================================================== */}
