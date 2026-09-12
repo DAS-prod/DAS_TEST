@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   ChevronLeft,
   ChevronRight,
-  Gift,
   MessageCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -15,20 +14,17 @@ const WHATSAPP_NUMBER =
 
 type HeroSlide = {
   key: string;
+
   title: string;
   subtitle?: string;
 
-  href?: string;
+  href: string;
+  buttonText?: string;
 
-  whatsappMessage?: string;
-
-  secondaryHref?: string;
-  secondaryText?: string;
+  whatsappMessage: string;
 
   desktop: string;
   mobile: string;
-
-  buttonText?: string;
 };
 
 const SLIDES: HeroSlide[] = [
@@ -40,6 +36,10 @@ const SLIDES: HeroSlide[] = [
     subtitle:
       "Handpicked flavours from the Godavari",
 
+    href: "/combos",
+
+    buttonText: "Explore Combos",
+
     whatsappMessage:
       "Hi Godavari Basket, I am interested in your Godavari Combos. Please share the available combo options.",
 
@@ -48,44 +48,34 @@ const SLIDES: HeroSlide[] = [
 
     mobile:
       "/images/hero/hero-combos-mobile.jpg",
-
-    buttonText:
-      "Explore Combos",
   },
 
   {
     key: "gifting",
 
-    title:
-      "Gifting & Hampers",
+    title: "Gifting & Hampers",
 
     subtitle:
       "Thoughtful gifting with a touch of tradition",
 
+    href: "/gifting",
+
+    buttonText: "Explore Gifting",
+
     whatsappMessage:
       "Hi Godavari Basket, I am interested in your gifting and hamper options. Please share the available choices.",
-
-    secondaryHref:
-      "/custom-basket",
-
-    secondaryText:
-      "Customise Your Gift",
 
     desktop:
       "/images/hero/hero-gifting.jpg",
 
     mobile:
       "/images/hero/hero-gifting-mobile.jpg",
-
-    buttonText:
-      "Explore Gifting",
   },
 
   {
     key: "coir-toys",
 
-    title:
-      "Coir Toys",
+    title: "Coir Toys",
 
     subtitle:
       "Traditional handmade creations from our roots",
@@ -93,14 +83,17 @@ const SLIDES: HeroSlide[] = [
     href:
       "/art-and-craft",
 
+    buttonText:
+      "Explore Collection",
+
+    whatsappMessage:
+      "Hi Godavari Basket, I am interested in your Coir Toys and traditional handmade products. Please share the available collection.",
+
     desktop:
       "/images/hero/hero-coir-toys.jpg",
 
     mobile:
       "/images/hero/hero-coir-toys-mobile.jpg",
-
-    buttonText:
-      "Explore Collection",
   },
 
   {
@@ -115,14 +108,17 @@ const SLIDES: HeroSlide[] = [
     href:
       "/90s-seasonal",
 
+    buttonText:
+      "Relive the 90's",
+
+    whatsappMessage:
+      "Hi Godavari Basket, I am interested in your 90's Memories collection. Please share the available products and combos.",
+
     desktop:
       "/images/hero/hero-90s-memories.jpg",
 
     mobile:
       "/images/hero/hero-90s-memories-mobile.jpg",
-
-    buttonText:
-      "Relive the 90's",
   },
 
   {
@@ -134,17 +130,19 @@ const SLIDES: HeroSlide[] = [
     subtitle:
       "Authentic flavours from our roots to your home",
 
-    href:
-      "/#shop",
+    href: "/",
+
+    buttonText:
+      "Shop Now",
+
+    whatsappMessage:
+      "Hi Godavari Basket, I am interested in your traditional Godavari food products. Please help me with the available products.",
 
     desktop:
       "/images/hero/hero-essentials.jpg",
 
     mobile:
       "/images/hero/hero-essentials-mobile.jpg",
-
-    buttonText:
-      "Shop Now",
   },
 ];
 
@@ -228,6 +226,7 @@ export default function Hero() {
       }
     >
       <div className="relative h-[420px] w-full sm:h-[500px] md:h-[560px] lg:h-[620px]">
+
         {SLIDES.map(
           (
             slide,
@@ -251,6 +250,7 @@ export default function Hero() {
                   !isActive
                 }
               >
+                {/* Background image */}
                 <picture>
                   <source
                     media="(max-width: 700px)"
@@ -268,27 +268,27 @@ export default function Hero() {
                     }
                     className="absolute inset-0 h-full w-full object-cover"
                     loading={
-                      index ===
-                      0
+                      index === 0
                         ? "eager"
                         : "lazy"
                     }
                   />
                 </picture>
 
-                <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/25 to-transparent md:from-black/55 md:via-black/20" />
+                {/* Dark overlay */}
+                <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/20 to-transparent md:from-black/50 md:via-black/15" />
 
+                {/* Banner content */}
                 <div className="relative z-20 mx-auto flex h-full max-w-7xl items-center px-5 sm:px-8 lg:px-12">
+
                   <div className="max-w-xl text-white">
+
                     <p className="mb-3 text-xs font-semibold uppercase tracking-[0.28em] text-[#e2c27d] sm:text-sm">
-                      Godavari
-                      Basket
+                      Godavari Basket
                     </p>
 
                     <h1 className="text-4xl font-semibold leading-[1.08] sm:text-5xl md:text-6xl">
-                      {
-                        slide.title
-                      }
+                      {slide.title}
                     </h1>
 
                     {slide.subtitle && (
@@ -299,67 +299,43 @@ export default function Hero() {
                       </p>
                     )}
 
+                    {/* Buttons */}
                     <div className="mt-7 flex flex-wrap items-center gap-3">
-                      {slide.whatsappMessage ? (
-                        <a
-                          href={getWhatsappUrl(
-                            slide.whatsappMessage
-                          )}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-[#d5b56f] bg-[#153d2b] px-6 py-3 text-sm font-semibold text-white shadow-lg transition duration-200 hover:-translate-y-0.5 hover:bg-[#1d5139] sm:px-7"
-                        >
-                          <MessageCircle
-                            size={
-                              17
-                            }
-                          />
 
-                          {slide.buttonText ||
-                            "Explore"}
-                        </a>
-                      ) : (
-                        slide.href && (
-                          <Link
-                            href={
-                              slide.href
-                            }
-                            className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-[#d5b56f] bg-[#153d2b] px-6 py-3 text-sm font-semibold text-white shadow-lg transition duration-200 hover:-translate-y-0.5 hover:bg-[#1d5139] sm:px-7"
-                          >
-                            {slide.buttonText ||
-                              "Explore"}
+                      {/* Explore / Shop button */}
+                      <Link
+                        href={
+                          slide.href
+                        }
+                        className="group inline-flex min-h-[48px] items-center justify-center rounded-full border border-[#d5b56f] bg-[#153d2b] px-6 py-3 text-sm font-semibold text-white shadow-lg transition duration-200 hover:-translate-y-0.5 hover:bg-[#1d5139] sm:px-7"
+                      >
+                        {
+                          slide.buttonText ||
+                          "Explore"
+                        }
 
-                            <span className="ml-2">
-                              →
-                            </span>
-                          </Link>
-                        )
-                      )}
+                        <span className="ml-2 transition-transform duration-200 group-hover:translate-x-0.5">
+                          →
+                        </span>
+                      </Link>
 
-                      {slide.secondaryHref &&
-                        slide.secondaryText && (
-                          <Link
-                            href={
-                              slide.secondaryHref
-                            }
-                            className="group inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-[#e6cc87] bg-[#f7eed6]/95 px-6 py-3 text-sm font-semibold text-[#153d2b] shadow-[0_8px_28px_rgba(0,0,0,0.14)] backdrop-blur-sm transition duration-200 hover:-translate-y-0.5 hover:bg-white sm:px-7"
-                          >
-                            <Gift
-                              size={
-                                17
-                              }
-                              className="text-[#9c742c]"
-                            />
-
-                            {
-                              slide.secondaryText
-                            }
-
-                            <span className="transition-transform duration-200 group-hover:translate-x-0.5">
-                              →
-                            </span>
-                          </Link>
+                      {/* WhatsApp button */}
+                      <a
+                        href={getWhatsappUrl(
+                          slide.whatsappMessage
                         )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-[#e6cc87] bg-[#f7eed6]/95 px-6 py-3 text-sm font-semibold text-[#153d2b] shadow-[0_8px_28px_rgba(0,0,0,0.14)] backdrop-blur-sm transition duration-200 hover:-translate-y-0.5 hover:bg-white sm:px-7"
+                      >
+                        <MessageCircle
+                          size={17}
+                          className="text-[#1b6b45]"
+                        />
+
+                        WhatsApp
+                      </a>
+
                     </div>
                   </div>
                 </div>
@@ -368,8 +344,8 @@ export default function Hero() {
           }
         )}
 
-        {totalSlides >
-          1 && (
+        {/* Navigation arrows */}
+        {totalSlides > 1 && (
           <>
             <button
               type="button"
@@ -399,7 +375,9 @@ export default function Hero() {
           </>
         )}
 
+        {/* Slider dots */}
         <div className="absolute bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/20 px-3 py-2 backdrop-blur-sm">
+
           {SLIDES.map(
             (
               slide,
@@ -411,8 +389,7 @@ export default function Hero() {
                 }
                 type="button"
                 aria-label={`Open banner ${
-                  index +
-                  1
+                  index + 1
                 }`}
                 onClick={() =>
                   setActiveSlide(
@@ -428,6 +405,7 @@ export default function Hero() {
               />
             )
           )}
+
         </div>
       </div>
     </section>
